@@ -18,13 +18,13 @@ struct BencodeNode {
 };
 
 class BencodeParser {
-public:
-    static std::shared_ptr<BencodeNode> parse(const std::string& raw_data);
-
-private:
-    static std::shared_ptr<BencodeNode> decodeElement(const std::string& data, size_t& index);
-    static BencodeString decodeString(const std::string& data, size_t& index);
-    static BencodeInt decodeInt(const std::string& data, size_t& index);
-    static BencodeList decodeList(const std::string& data, size_t& index);
-    static BencodeDict decodeDict(const std::string& data, size_t& index);
+    public:
+        static std::shared_ptr<BencodeNode> parse(const std::string& raw_data);
+    // Public for testing turn it back to private
+    public:
+        static std::shared_ptr<BencodeNode> decodeElement(const std::string& data, size_t& index);
+        static BencodeString decodeString(const std::string& data, size_t& index);
+        static BencodeInt decodeInt(const std::string& data, size_t& index);
+        static BencodeList decodeList(const std::string& data, size_t& index);
+        static BencodeDict decodeDict(const std::string& data, size_t& index);
 };
