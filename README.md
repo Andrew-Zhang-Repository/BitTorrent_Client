@@ -1,1 +1,1 @@
-TODO: Implement all decode functions 
+TODO: Implement decode list, test functions, and turn parser class functions back to private
