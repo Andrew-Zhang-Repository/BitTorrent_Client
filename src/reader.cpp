@@ -10,14 +10,81 @@ BencodeInt decodeInt(const std::string& data, size_t& index);
 BencodeList decodeList(const std::string& data, size_t& index);
 BencodeDict decodeDict(const std::string& data, size_t& index);
 
-BencodeString BencodeParser::decodeString(const std::string& data,size_t& index){
 
+void printNode(const BencodeNode& node);
+
+void printList(const BencodeList& list)
+{
+    std::cout << "[";
+
+    bool first = true;
+    for (const auto& element : list)
+    {
+        if (!first)
+            std::cout << ", ";
+
+        printNode(*element);
+        first = false;
+    }
+
+    std::cout << "]";
+}
+
+void printDict(const BencodeDict& dict)
+{
+    std::cout << "{";
+
+    bool first = true;
+    for (const auto& [key, value] : dict)
+    {
+        if (!first)
+            std::cout << ", ";
+
+        std::cout << '"' << key << "\": ";
+        printNode(*value);
+
+        first = false;
+    }
+
+    std::cout << "}";
+}
+
+void printNode(const BencodeNode& node)
+{
+    std::visit([](const auto& value)
+    {
+        using T = std::decay_t<decltype(value)>;
+
+        if constexpr (std::is_same_v<T, BencodeInt>)
+        {
+            std::cout << value;
+        }
+        else if constexpr (std::is_same_v<T, BencodeString>)
+        {
+            std::cout << '"' << value << '"';
+        }
+        else if constexpr (std::is_same_v<T, BencodeList>)
+        {
+            printList(value);
+        }
+        else if constexpr (std::is_same_v<T, BencodeDict>)
+        {
+            printDict(value);
+        }
+
+    }, node.value);
+}
+
+BencodeString BencodeParser::decodeString(const std::string& data,size_t& index){
+    if (!(data.find(':') != std::string::npos)){
+        throw std::runtime_error("No colon");
+    }
     
     // Get byte val and advance index
-    int end = data.find(":");
+    int end = data.find(":",index);
     size_t length = end - index; 
     int result = std::stoi(data.substr(index, length));
-    index = index + end + 1;
+    index = end + 1;
 
     // Read bytes from da extracted result and advance index
     std::string extracted = data.substr(index, result);
@@ -31,22 +98,43 @@ BencodeString BencodeParser::decodeString(const std::string& data,size_t& index)
 
 BencodeInt BencodeParser::decodeInt(const std::string& data, size_t& index){
 
-    if (data[index] != 'i'){
-        return 0;
+    if (data[index] != 'i')
+        throw std::runtime_error("Expected integer");
+
+    index++;  
+
+    if (data[index]=='0'){
+        throw std::runtime_error("Leading 0");
     }
-    index = index + 1;
-    // i42e
-    int start = index;
-    int end = data.find("e");
-    index = index + end;
-    // Get inbetween 
-    return std::stoi(data.substr(start, end - start));
+    
+    if(index >= data.size()) throw std::runtime_error("Too Small");
+
+    if(index >= data.size() || data[index] < '0' || data[index] > '9') {
+		throw std::runtime_error("wrong number");
+	}
+
+    if (data[data.size() - 1] != 'e'){
+        throw std::runtime_error("No exit char");
+    }
+
+    size_t end = data.find('e', index);
+
+    std::cout << data.size() - 1<< std::endl; 
+    int value = std::stoi(data.substr(index, end - index));
+    index = end + 1;       
+
+    return value;
 
 }
 
 BencodeList BencodeParser::decodeList(const std::string& data, size_t& index){
 
+    if (data[data.size() - 1] != 'e'){
+        throw std::runtime_error("No exit char");
+    }
+
     index++; 
+    BencodeList list;
     
     while (index < data.length() && data[index] != 'e') {
         std::shared_ptr<BencodeNode> element = decodeElement(data, index);
@@ -54,10 +142,8 @@ BencodeList BencodeParser::decodeList(const std::string& data, size_t& index){
     }
     
     index++; 
-    auto node = std::make_shared<BencodeNode>();
-    node->value = list;
-    return node;
-
+    
+    return list;
 }
 
 
@@ -72,7 +158,7 @@ std::shared_ptr<BencodeNode> BencodeParser::decodeElement(const std::string& dat
 
     auto node = std::make_shared<BencodeNode>();
 
-    if (c == 'i'){node->value  = decodeInt(data, index);}
+    if (c == 'i'){node->value  = decodeInt(data, index);} 
     if (c == 'l'){node->value  = decodeList(data, index);}
     if (c == 'd'){node->value  = decodeDict(data, index);}
     if (c >= '0' && c <= '9'){node->value = decodeString(data, index);}
@@ -90,7 +176,7 @@ BencodeDict BencodeParser::decodeDict(const std::string& data, size_t& index){
 
     index = index + 1;
 
-    while (data[index] != 'e'){
+    while (index < data.size() && data[index] != 'e'){
         auto key = decodeString(data, index);
         auto result = decodeElement(data,index);
         dict[key] = result;
@@ -102,8 +188,18 @@ BencodeDict BencodeParser::decodeDict(const std::string& data, size_t& index){
 }
 
 int main() {
+    std::string test_data = "11:cheesecake";
     BencodeParser test;
     size_t index = 0;
-    std::cout << test.decodeInt("i42e",index) << std::endl;
-    std::cout << index << std::endl;
+    auto node = test.decodeElement(test_data, index);
+
+    printNode(*node);
+    std::cout << '\n';
+
+  
+  
 }
+
+
+
+

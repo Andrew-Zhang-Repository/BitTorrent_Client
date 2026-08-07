@@ -1,1 +1,1 @@
-TODO: Implement decode list, test functions, and turn parser class functions back to private
+TODO: Add edge case bugs, especially for escape char collision
