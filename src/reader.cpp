@@ -182,13 +182,14 @@ BencodeDict BencodeParser::decodeDict(const std::string& data, size_t& index){
         dict[key] = result;
     }
 
+    if (index >= data.size()) throw std::runtime_error("no e found at the end");
     index++;
 
     return dict;
 }
 
 int main() {
-    std::string test_data = "11:cheesecake";
+    std::string test_data = "d3:keyi1ee";
     BencodeParser test;
     size_t index = 0;
     auto node = test.decodeElement(test_data, index);
