@@ -46,6 +46,18 @@ BencodeInt BencodeParser::decodeInt(const std::string& data, size_t& index){
 
 BencodeList BencodeParser::decodeList(const std::string& data, size_t& index){
 
+    index++; 
+    
+    while (index < data.length() && data[index] != 'e') {
+        std::shared_ptr<BencodeNode> element = decodeElement(data, index);
+        list.push_back(element);
+    }
+    
+    index++; 
+    auto node = std::make_shared<BencodeNode>();
+    node->value = list;
+    return node;
+
 }
 
 
