@@ -101,26 +101,25 @@ BencodeInt BencodeParser::decodeInt(const std::string& data, size_t& index){
     if (data[index] != 'i')
         throw std::runtime_error("Expected integer");
 
-    index++;  
+    index++;
+               
+    size_t start = index;
 
-    if (data[index]=='0'){
+    if (data[index] == '-')
+        index++;
+
+    if (!std::isdigit(static_cast<unsigned char>(data[index])))
+    {
+        throw std::runtime_error("Expected integer after signs");
+    }
+
+    if (data[index] == '0' && data[index + 1] != 'e'){
         throw std::runtime_error("Leading 0");
     }
     
-    if(index >= data.size()) throw std::runtime_error("Too Small");
+    size_t end = data.find('e', start);
 
-    if(index >= data.size() || data[index] < '0' || data[index] > '9') {
-		throw std::runtime_error("wrong number");
-	}
-
-    if (data[data.size() - 1] != 'e'){
-        throw std::runtime_error("No exit char");
-    }
-
-    size_t end = data.find('e', index);
-
-    std::cout << data.size() - 1<< std::endl; 
-    int value = std::stoi(data.substr(index, end - index));
+    int value = std::stoi(data.substr(start, end - start));
     index = end + 1;       
 
     return value;
@@ -128,10 +127,6 @@ BencodeInt BencodeParser::decodeInt(const std::string& data, size_t& index){
 }
 
 BencodeList BencodeParser::decodeList(const std::string& data, size_t& index){
-
-    if (data[data.size() - 1] != 'e'){
-        throw std::runtime_error("No exit char");
-    }
 
     index++; 
     BencodeList list;
@@ -189,7 +184,7 @@ BencodeDict BencodeParser::decodeDict(const std::string& data, size_t& index){
 }
 
 int main() {
-    std::string test_data = "d3:keyi1ee";
+    std::string test_data = "i-01e";
     BencodeParser test;
     size_t index = 0;
     auto node = test.decodeElement(test_data, index);
