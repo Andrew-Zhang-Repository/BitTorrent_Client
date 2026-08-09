@@ -38,5 +38,5 @@ class BencodeParser {
         static BencodeInt decodeInt(const std::string& data, size_t& index);
         static BencodeList decodeList(const std::string& data, size_t& index);
         static BencodeDict decodeDict(const std::string& data, size_t& index);
-        static void populate_torrent(std::shared_ptr<BencodeNode> node);
+        static TorrentFile populate_torrent(std::shared_ptr<BencodeNode> node);
 };

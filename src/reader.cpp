@@ -214,38 +214,27 @@ BencodeDict BencodeParser::decodeDict(const std::string& data, size_t& index){
 
     return dict;
 }
-void populate_torrent(std::shared_ptr<BencodeNode> node);
 
-void populate_torrent(std::shared_ptr<BencodeNode> node){
+
+TorrentFile BencodeParser::populate_torrent(std::shared_ptr<BencodeNode> node){
+
     TorrentFile return_file;
     BencodeDict dict = std::get<BencodeDict>(node->value);
-  
+    BencodeString announce_str = std::get<BencodeString>(dict["announce"]->value);
 
-    std::shared_ptr<BencodeNode> node_2 = dict["announce"];
-    BencodeString announce_str = std::get<BencodeString>(node_2->value);
-
-    std::shared_ptr<BencodeNode> node_3 = dict["info"];
-    BencodeDict dict_info = std::get<BencodeDict>(node_3->value);
-
-    std::shared_ptr<BencodeNode> len = dict_info["length"];
-    BencodeInt length = std::get<BencodeInt>(len->value);
-    std::shared_ptr<BencodeNode> file = dict_info["name"];
-    BencodeString name = std::get<BencodeString>(file->value);
-    std::shared_ptr<BencodeNode> pl = dict_info["piece length"];
-    BencodeInt piece_length = std::get<BencodeInt>(pl->value);
-    std::shared_ptr<BencodeNode> ps = dict_info["pieces"];
-    BencodeString pieces = std::get<BencodeString>(ps->value);
+    BencodeDict dict_info = std::get<BencodeDict>(dict["info"]->value);
+    BencodeInt length = std::get<BencodeInt>(dict_info["length"]->value);
+    BencodeString name = std::get<BencodeString>(dict_info["name"]->value);
+    BencodeInt piece_length = std::get<BencodeInt>(dict_info["piece length"]->value);
+    BencodeString pieces = std::get<BencodeString>(dict_info["pieces"]->value);
     
-
-
     return_file.announce_url = announce_str;
     return_file.name = name;
     return_file.length = length;
     return_file.piece_length = piece_length;
     return_file.pieces_hashes = pieces;
 
-
-
+    return return_file;
 
 }
 
@@ -256,11 +245,8 @@ int main() {
     size_t index = 0;
     auto node = test.decodeElement(test_data, index);
     printNode(*node);
-    populate_torrent(node);
+    test.populate_torrent(node);
     std::cout << '\n';
-
-  
-  
 }
 
 
