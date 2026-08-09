@@ -4,11 +4,6 @@
 #include <map>
 #include <memory>
 
-BencodeNode decodeElement(const std::string& data, size_t& index);
-BencodeString decodeString(const std::string& data, size_t& index);
-BencodeInt decodeInt(const std::string& data, size_t& index);
-BencodeList decodeList(const std::string& data, size_t& index);
-BencodeDict decodeDict(const std::string& data, size_t& index);
 
 
 void printNode(const BencodeNode& node);
@@ -100,6 +95,10 @@ BencodeString BencodeParser::decodeString(const std::string& data,size_t& index)
     int result = std::stoi(data.substr(index, length));
     index = end + 1;
 
+    if (index >= data.size()){
+        throw std::runtime_error("String extends past end of input");
+    }
+
     // Read bytes from da extracted result and advance index
     std::string extracted = data.substr(index, result);
     index = index + result;
@@ -132,7 +131,7 @@ BencodeInt BencodeParser::decodeInt(const std::string& data, size_t& index){
     }
     
     size_t end = data.find('e', start);
-
+    if (index >= data.size()) throw std::runtime_error("No e found at the end for ints");
     int value = std::stoi(data.substr(start, end - start));
     index = end + 1;       
 
@@ -142,13 +141,23 @@ BencodeInt BencodeParser::decodeInt(const std::string& data, size_t& index){
 
 BencodeList BencodeParser::decodeList(const std::string& data, size_t& index){
 
+     if (data[index] != 'l'){
+        throw std::runtime_error("Expected a list");
+    }
     index++; 
+
+    if (index >= data.size()){
+        throw std::runtime_error("Unexpected end of input for list");
+    }
+
     BencodeList list;
     
     while (index < data.length() && data[index] != 'e') {
         std::shared_ptr<BencodeNode> element = decodeElement(data, index);
         list.push_back(element);
     }
+
+    if (index >= data.size()) throw std::runtime_error("No e found at the end for list");
     
     index++; 
     
@@ -159,18 +168,19 @@ BencodeList BencodeParser::decodeList(const std::string& data, size_t& index){
 
 std::shared_ptr<BencodeNode> BencodeParser::decodeElement(const std::string& data, size_t& index){
 
+    if (index >= data.size())
+    throw std::runtime_error("Unexpected end of input when decoding element");
+
     char c = data[index];
 
-    if (c != 'i' && c!= 'l' && c!='d' && !(c >= '0' && c <= '9')){
-        throw "Invalid character read";
-    }
-
+   
     auto node = std::make_shared<BencodeNode>();
 
     if (c == 'i'){node->value  = decodeInt(data, index);} 
-    if (c == 'l'){node->value  = decodeList(data, index);}
-    if (c == 'd'){node->value  = decodeDict(data, index);}
-    if (c >= '0' && c <= '9'){node->value = decodeString(data, index);}
+    else if (c == 'l'){node->value  = decodeList(data, index);}
+    else if (c == 'd'){node->value  = decodeDict(data, index);}
+    else if (c >= '0' && c <= '9'){node->value = decodeString(data, index);}
+    else{ throw std::runtime_error("Invalid character read"); }
     
     return node;
 }
@@ -178,27 +188,35 @@ std::shared_ptr<BencodeNode> BencodeParser::decodeElement(const std::string& dat
 BencodeDict BencodeParser::decodeDict(const std::string& data, size_t& index){
 
     if (data[index] != 'd'){
-        BencodeDict empty = {};
-        return empty;
+        throw std::runtime_error("Expected a dictionary");
     }
-    BencodeDict dict = {};
 
     index = index + 1;
 
-    while (index < data.size() && data[index] != 'e'){
-        auto key = decodeString(data, index);
-        auto result = decodeElement(data,index);
-        dict[key] = result;
+    if (index >= data.size()){
+        throw std::runtime_error("Unexpected end of input for dictionary");
     }
 
-    if (index >= data.size()) throw std::runtime_error("no e found at the end");
+    BencodeDict dict = {};
+
+    while (index < data.size() && data[index] != 'e'){
+        std::string key = decodeString(data, index);
+        auto result = decodeElement(data,index);
+
+        if (dict.count(key) > 0) {throw std::runtime_error("duplicate key");}
+        if( index >= data.size()) {throw std::runtime_error("to small");}
+        dict[key] = result;
+        
+    }
+
+    if (index >= data.size()){throw std::runtime_error("Missing dictionary value");}
     index++;
 
     return dict;
 }
 
 int main() {
-    std::string test_data = "04:spam";
+    std::string test_data = "d8:announce14:http://tracker4:infod4:name8:test.txt6:lengthi12345e12:piece lengthi16384e6:pieces20:12345678901234567890ee";
     BencodeParser test;
     size_t index = 0;
     auto node = test.decodeElement(test_data, index);

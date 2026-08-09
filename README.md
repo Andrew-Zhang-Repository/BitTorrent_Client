@@ -1,1 +1,1 @@
-TODO: Add edge case bugs, especially for escape char collision
+TODO: Move onto next phase of adding peer to peer / network implementation
