@@ -76,12 +76,26 @@ void printNode(const BencodeNode& node)
 }
 
 BencodeString BencodeParser::decodeString(const std::string& data,size_t& index){
-    if (!(data.find(':') != std::string::npos)){
-        throw std::runtime_error("No colon");
+   
+
+    size_t end = data.find(":",index);
+    for (size_t i = index ; i < end; i++){
+        if (std::isdigit(static_cast<unsigned char>(data[i])) == false){
+            throw std::runtime_error("Non digit characters detected before colon");
+        }
     }
+
+    if (end == std::string::npos)
+        throw std::runtime_error("No colon in string");
+
+    if (end == index)
+        throw std::runtime_error("Empty string length");
+
+    if (data[index] == '0' && end != index + 1)
+        throw std::runtime_error("Leading zero in string length");
     
-    // Get byte val and advance index
-    int end = data.find(":",index);
+  
+    
     size_t length = end - index; 
     int result = std::stoi(data.substr(index, length));
     index = end + 1;
@@ -184,7 +198,7 @@ BencodeDict BencodeParser::decodeDict(const std::string& data, size_t& index){
 }
 
 int main() {
-    std::string test_data = "i-01e";
+    std::string test_data = "04:spam";
     BencodeParser test;
     size_t index = 0;
     auto node = test.decodeElement(test_data, index);
