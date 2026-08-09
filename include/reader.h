@@ -8,6 +8,7 @@
 
 struct BencodeNode; 
 struct TorrentFile;
+struct TorrentFileEntry;
 using BencodeInt = long long;
 using BencodeString = std::string;
 using BencodeList = std::vector<std::shared_ptr<BencodeNode>>;
@@ -17,6 +18,13 @@ struct BencodeNode {
     std::variant<BencodeInt, BencodeString, BencodeList, BencodeDict> value;
 };
 
+struct TorrentFileEntry
+{
+    std::vector<std::string> path;
+    long long length;
+};
+
+
 struct TorrentFile {
   
     std::string announce_url; 
@@ -24,8 +32,10 @@ struct TorrentFile {
     long long length;           
     long long piece_length;    
     std::string pieces_hashes;  
-    std::string info_hash;     
+    std::string info_hash;
+    std::vector<TorrentFileEntry> files;     
 };
+
 
 
 class BencodeParser {
