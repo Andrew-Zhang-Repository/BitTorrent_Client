@@ -214,14 +214,49 @@ BencodeDict BencodeParser::decodeDict(const std::string& data, size_t& index){
 
     return dict;
 }
+void populate_torrent(std::shared_ptr<BencodeNode> node);
+
+void populate_torrent(std::shared_ptr<BencodeNode> node){
+    TorrentFile return_file;
+    BencodeDict dict = std::get<BencodeDict>(node->value);
+  
+
+    std::shared_ptr<BencodeNode> node_2 = dict["announce"];
+    BencodeString announce_str = std::get<BencodeString>(node_2->value);
+
+    std::shared_ptr<BencodeNode> node_3 = dict["info"];
+    BencodeDict dict_info = std::get<BencodeDict>(node_3->value);
+
+    std::shared_ptr<BencodeNode> len = dict_info["length"];
+    BencodeInt length = std::get<BencodeInt>(len->value);
+    std::shared_ptr<BencodeNode> file = dict_info["name"];
+    BencodeString name = std::get<BencodeString>(file->value);
+    std::shared_ptr<BencodeNode> pl = dict_info["piece length"];
+    BencodeInt piece_length = std::get<BencodeInt>(pl->value);
+    std::shared_ptr<BencodeNode> ps = dict_info["pieces"];
+    BencodeString pieces = std::get<BencodeString>(ps->value);
+    
+
+
+    return_file.announce_url = announce_str;
+    return_file.name = name;
+    return_file.length = length;
+    return_file.piece_length = piece_length;
+    return_file.pieces_hashes = pieces;
+
+
+
+
+}
+
 
 int main() {
     std::string test_data = "d8:announce14:http://tracker4:infod4:name8:test.txt6:lengthi12345e12:piece lengthi16384e6:pieces20:12345678901234567890ee";
     BencodeParser test;
     size_t index = 0;
     auto node = test.decodeElement(test_data, index);
-
     printNode(*node);
+    populate_torrent(node);
     std::cout << '\n';
 
   
