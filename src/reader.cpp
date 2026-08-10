@@ -4,7 +4,9 @@
 #include <stdexcept>
 #include <map>
 #include <memory>
-
+#include <openssl/sha.h>
+#include <iomanip>
+#include <sstream>
 
 
 void printNode(const BencodeNode& node);
@@ -201,12 +203,26 @@ BencodeDict BencodeParser::decodeDict(const std::string& data, size_t& index){
     BencodeDict dict = {};
 
     while (index < data.size() && data[index] != 'e'){
-        std::string key = decodeString(data, index);
-        auto result = decodeElement(data,index);
 
-        if (dict.count(key) > 0) {throw std::runtime_error("duplicate key");}
-        if( index >= data.size()) {throw std::runtime_error("to small");}
-        dict[key] = result;
+        std::string key = decodeString(data, index);
+        if (key == "info")
+        {
+            info_start = index;
+            auto result = decodeElement(data, index);
+            info_end = index;
+            dict[key] = result;
+            
+        }
+        else
+        {
+            auto result = decodeElement(data, index);
+            
+            if (dict.count(key) > 0) {throw std::runtime_error("duplicate key");}
+            if( index >= data.size()) {throw std::runtime_error("to small");}
+            dict[key] = result;
+        }
+
+        
         
     }
 
@@ -225,8 +241,32 @@ int main() {
     size_t index = 0;
     auto node = test.decodeElement(test_data, index);
     Torrent torrent;
-    TorrentFile hei = torrent.populate_torrent(node);
-    std::cout << hei.name << '\n';
+    TorrentFile tf;
+    std::string sub = test_data.substr(test.info_start, test.info_end  - test.info_start);
+
+    unsigned char hash[20];
+
+    SHA1(
+        reinterpret_cast<const unsigned char*>(sub.data()),
+        sub.size(),
+        hash
+    );
+
+
+    // Just testing for the info hash
+    std::stringstream ss;
+
+    for (unsigned char c : hash) {
+        ss << std::hex
+        << std::setw(2)
+        << std::setfill('0')
+        << static_cast<int>(c);
+    }
+
+    std::string info_hash = ss.str();
+    tf.info_hash = info_hash;
+    std::cout << "Info hash: " << tf.info_hash << '\n';
+
     printNode(*node);
     std::cout << '\n';
 }

@@ -33,6 +33,7 @@ class Torrent {
     // Public for testing turn it back to private
     public:
         static TorrentFile populate_torrent(std::shared_ptr<BencodeNode> node);
+        static void info_hash(std::string input);
 };
 
 
