@@ -4,6 +4,9 @@
 #include <stdexcept>
 #include <map>
 #include <memory>
+#include <sstream>
+#include <algorithm>
+#include <iomanip>
 
 TorrentFile Torrent::populate_torrent(std::shared_ptr<BencodeNode> node){
 
@@ -30,3 +33,21 @@ TorrentFile Torrent::populate_torrent(std::shared_ptr<BencodeNode> node){
 
 }
 
+std::string Torrent::url_encode(const std::string &aString){
+
+    std::string aEncodedString = "";
+
+    for(char aChar : aString){
+        if(!std::isalnum((unsigned char)aChar) && aChar != '-' && aChar != '_' && aChar !='.' && aChar != '~'){
+            aEncodedString += "%";
+            std::stringstream ss;
+            ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << (int)(unsigned char) aChar;
+            aEncodedString += ss.str();
+        }
+        else{
+            aEncodedString += aChar;
+        }
+    }
+
+    return aEncodedString;
+}

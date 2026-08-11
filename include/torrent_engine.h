@@ -20,6 +20,7 @@ struct TorrentFileEntry
 struct TorrentFile {
   
     std::string announce_url; 
+    std::string peer_id;
     std::string name;
     long long length;           
     long long piece_length;    
@@ -33,7 +34,7 @@ class Torrent {
     // Public for testing turn it back to private
     public:
         static TorrentFile populate_torrent(std::shared_ptr<BencodeNode> node);
-        static void info_hash(std::string input);
+        static std::string url_encode(const std::string &input);
 };
 
 

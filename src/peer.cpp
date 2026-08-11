@@ -33,7 +33,3 @@ std::string get_peer(std::string identifier){
 
 }
 
-int main(){
-    std::cout << get_peer("-GB0001-") << std::endl;
-    return 0;
-}

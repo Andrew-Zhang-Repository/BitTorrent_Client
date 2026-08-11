@@ -1,5 +1,6 @@
 #include "../include/reader.h"
 #include "../include/torrent_engine.h"
+#include "../include/peer.h"
 #include <iostream>
 #include <stdexcept>
 #include <map>
@@ -282,9 +283,12 @@ int main() {
     Torrent torrent;
     TorrentFile tf;
     std::string sub = test_data.substr(test.info_start, test.info_end  - test.info_start);
-    tf.info_hash = calculateSHA1(test_data);
+    tf.info_hash = torrent.url_encode(calculateSHA1(test_data)); // Url encode the hash
+    tf.peer_id = torrent.url_encode(get_peer("-GB0001-"));
+
+
     
-    std::cout << "Info hash: " << calculateSHA1(test_data) << '\n';
+    std::cout << tf.info_hash << '\n';
 
     printNode(*node);
     std::cout << '\n';
