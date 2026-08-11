@@ -281,14 +281,23 @@ int main() {
     size_t index = 0;
     auto node = test.decodeElement(test_data, index);
     Torrent torrent;
-    TorrentFile tf;
+    TorrentFile tf = torrent.populate_torrent(node);
     std::string sub = test_data.substr(test.info_start, test.info_end  - test.info_start);
     tf.info_hash = torrent.url_encode(calculateSHA1(test_data)); // Url encode the hash
     tf.peer_id = torrent.url_encode(get_peer("-GB0001-"));
 
 
+    std::string tracker_url = tf.announce_url + 
+    "?info_hash=" + tf.info_hash +
+    "&peer_id="   + tf.peer_id +
+    "&port=6881" +
+    "&uploaded=0" +
+    "&downloaded=0" +
+    "&left="      + std::to_string(tf.length) +
+    "&compact=1"; 
+
     
-    std::cout << tf.info_hash << '\n';
+    std::cout << tracker_url << '\n';
 
     printNode(*node);
     std::cout << '\n';
