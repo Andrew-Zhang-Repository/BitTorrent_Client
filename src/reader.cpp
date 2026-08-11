@@ -10,7 +10,8 @@
 #include <stdexcept>
 #include <iomanip>
 #include <sstream>
-
+#include <fstream>
+#include <iterator>
 
 void printNode(const BencodeNode& node);
 
@@ -275,8 +276,24 @@ std::string calculateSHA1(const std::string& data) {
 }
 
 
+std::string readTorrentFile(const std::string& filePath) {
+
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open torrent file.");
+    }
+
+    file.unsetf(std::ios::skipws);
+
+    return std::string(
+        std::istreambuf_iterator<char>(file),
+        std::istreambuf_iterator<char>()
+    );
+}
+
+
 int main() {
-    std::string test_data = "d8:announce14:http://tracker4:infod4:name8:test.txt6:lengthi12345e12:piece lengthi16384e6:pieces20:12345678901234567890ee";
+    std::string test_data = readTorrentFile("../small_file.torrent");
     BencodeParser test;
     size_t index = 0;
     auto node = test.decodeElement(test_data, index);
@@ -284,7 +301,7 @@ int main() {
     TorrentFile tf = torrent.populate_torrent(node);
     std::string sub = test_data.substr(test.info_start, test.info_end  - test.info_start);
     tf.info_hash = torrent.url_encode(calculateSHA1(test_data)); // Url encode the hash
-    tf.peer_id = torrent.url_encode(get_peer("-GB0001-"));
+    tf.peer_id = torrent.url_encode(get_peer("-CC0001-"));
 
 
     std::string tracker_url = tf.announce_url + 
