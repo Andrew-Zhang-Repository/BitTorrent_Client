@@ -1,6 +1,7 @@
 #include "../include/reader.h"
 #include "../include/torrent_engine.h"
 #include "../include/peer.h"
+#include "../include/requests.h"
 #include <iostream>
 #include <stdexcept>
 #include <map>
@@ -313,10 +314,10 @@ int main() {
     "&left="      + std::to_string(tf.length) +
     "&compact=1"; 
 
-    
-    std::cout << tracker_url << '\n';
+    std::cout << tracker_url << std::endl;
+    std::cout << get_response(tracker_url) << '\n';
 
-    printNode(*node);
+    //printNode(*node);
     std::cout << '\n';
 }
 
