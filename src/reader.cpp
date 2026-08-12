@@ -314,8 +314,19 @@ int main() {
     "&left="      + std::to_string(tf.length) +
     "&compact=1"; 
 
-    std::cout << tracker_url << std::endl;
-    std::cout << get_response(tracker_url) << '\n';
+    std::string response = get_response(tracker_url);
+    BencodeDict return_dict = extractTrackerDictionary(response,test);
+    BencodeInt interval = 0;
+    BencodeString peers = "";
+    get_interval_peers(return_dict,interval,peers);
+
+    std::cout << interval << std::endl;
+    std::cout << peers << std::endl;
+
+    if (peers.empty()){
+        std::cout << "No other peers are currently online for this torrent." << std::endl;
+    }
+    // else get peers logic
 
     //printNode(*node);
     std::cout << '\n';

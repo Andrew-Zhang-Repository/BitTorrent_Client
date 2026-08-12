@@ -1,5 +1,6 @@
 #include "../include/requests.h"
 
+
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
 
     size_t totalSize = size * nmemb;
@@ -24,7 +25,6 @@ std::string get_response(const std::string url){
         CURLcode res = curl_easy_perform(curl);
 
         if (res != CURLE_OK){
-            std::cout << res << std::endl;
             throw std::runtime_error("Curl problem");
         }
 
@@ -37,5 +37,36 @@ std::string get_response(const std::string url){
     }
 
     return responseString;
+
+}
+
+
+
+BencodeDict extractTrackerDictionary(const std::string& raw_http_response, BencodeParser& parser) {
+    
+    if (raw_http_response.empty()) {
+        throw std::runtime_error("Tracker response was completely empty.");
+    }
+
+    size_t index = 0;
+    
+    try {
+    
+        auto root_node = parser.decodeElement(raw_http_response, index);
+        if (!std::holds_alternative<BencodeDict>(root_node->value)) {
+            throw std::runtime_error("Invalid tracker response: Expected a dictionary.");
+        }
+        
+        return std::get<BencodeDict>(root_node->value);
+        
+    } catch (const std::exception& e) {
+        throw std::runtime_error(std::string("Failed to parse tracker response: ") + e.what());
+    }
+}
+
+void get_interval_peers(BencodeDict dict, BencodeInt& interval, BencodeString& peers){
+
+    interval = std::get<BencodeInt>(dict["interval"]->value);
+    peers = std::get<BencodeString>(dict["peers"]->value);
 
 }
