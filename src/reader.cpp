@@ -301,8 +301,10 @@ int main() {
     Torrent torrent;
     TorrentFile tf = torrent.populate_torrent(node);
     std::string sub = test_data.substr(test.info_start, test.info_end  - test.info_start);
-    tf.info_hash = torrent.url_encode(calculateSHA1(sub)); // Url encode the hash
-    tf.peer_id = torrent.url_encode(get_peer("-CC0001-"));
+    std::string hashed = calculateSHA1(sub);
+    std::string peer_id = get_peer("-CC0001-");
+    tf.info_hash = torrent.url_encode(hashed); // Url encode the hash
+    tf.peer_id = torrent.url_encode(peer_id);
 
 
     std::string tracker_url = tf.announce_url + 
@@ -328,6 +330,7 @@ int main() {
     }
     else{
         std::vector<peer> peers_list = torrent.extract_peers(peers);
+        std::string handshake = get_handshake(hashed,peer_id);
     }
     // else get peers logic
 

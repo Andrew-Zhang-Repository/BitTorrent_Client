@@ -57,7 +57,7 @@ std::vector<peer> Torrent::extract_peers(std::string peers){
     std::vector<peer> peers_list = {};
 
     if ((peers.size() % 6) != 0){
-        std::runtime_error("Peers size is invalid must be a multiple of 6");
+        throw std::runtime_error("Peers size is invalid must be a multiple of 6");
     }
     std::string ip_str = "";
     for (size_t i = 0; i < peers.length(); i += 6) {
@@ -70,11 +70,10 @@ std::vector<peer> Torrent::extract_peers(std::string peers){
 
         int port = (static_cast<unsigned char>(peers[i+4]) << 8) | static_cast<unsigned char>(peers[i+5]); // This might be off
         
-        std::string new_ip = ip_str;
-        peer_struct.ip = new_ip;
+        peer_struct.ip = ip_str;
         peer_struct.port = port;
-        std::cout << new_ip + "port: " + std::to_string(port) << std::endl;
         ip_str = "";
+        peers_list.push_back(peer_struct);
     }
 
     return peers_list;

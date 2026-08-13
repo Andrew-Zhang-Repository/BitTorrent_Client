@@ -76,3 +76,25 @@ void get_interval_peers(BencodeDict dict, BencodeInt& interval, BencodeString& p
     peers = std::get<BencodeString>(dict["peers"]->value);
 
 }
+
+std::string get_handshake(std::string info_hash, std::string peer_id){
+
+    std::string return_str = "";
+
+    //insert first byte
+    return_str += static_cast<char>(0x13);
+
+    //insert next 19
+    return_str += "BitTorrent protocol";
+
+    //insert next 8
+    for (int i = 0; i < 8; i++){
+        return_str += static_cast<char>(0x00);
+    }
+
+    //Info hash and then peeeer
+    return_str += info_hash;
+    return_str += peer_id;
+
+    return return_str;
+}
