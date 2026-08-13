@@ -319,12 +319,15 @@ int main() {
     BencodeInt interval = 0;
     BencodeString peers = "";
     get_interval_peers(return_dict,interval,peers);
-
+    printDict(return_dict);
     std::cout << interval << std::endl;
     std::cout << peers << std::endl;
 
     if (peers.empty()){
         std::cout << "No other peers are currently online for this torrent." << std::endl;
+    }
+    else{
+        std::vector<peer> peers_list = torrent.extract_peers(peers);
     }
     // else get peers logic
 

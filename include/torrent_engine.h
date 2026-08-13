@@ -6,9 +6,10 @@
 #include <variant>
 #include <memory>
 #include "reader.h"
-
+#include <iostream>
 struct TorrentFile;
 struct TorrentFileEntry;
+struct peer;
 
 struct TorrentFileEntry
 {
@@ -16,6 +17,10 @@ struct TorrentFileEntry
     long long length;
 };
 
+struct peer{
+    std::string ip;
+    long long port;
+};
 
 struct TorrentFile {
   
@@ -35,6 +40,7 @@ class Torrent {
     public:
         static TorrentFile populate_torrent(std::shared_ptr<BencodeNode> node);
         static std::string url_encode(const std::string &input);
+        static std::vector<peer> extract_peers(std::string peers);
 };
 
 

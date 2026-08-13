@@ -51,3 +51,31 @@ std::string Torrent::url_encode(const std::string &aString){
 
     return aEncodedString;
 }
+
+#include <cstring>
+std::vector<peer> Torrent::extract_peers(std::string peers){
+    std::vector<peer> peers_list = {};
+
+    if ((peers.size() % 6) != 0){
+        std::runtime_error("Peers size is invalid must be a multiple of 6");
+    }
+    std::string ip_str = "";
+    for (size_t i = 0; i < peers.length(); i += 6) {
+        peer peer_struct;
+     
+        ip_str += std::to_string(static_cast<int>(static_cast<unsigned char>(peers[i]))) + ".";
+        ip_str += std::to_string(static_cast<int>(static_cast<unsigned char>(peers[i + 1 ]))) + ".";
+        ip_str += std::to_string(static_cast<int>(static_cast<unsigned char>(peers[i + 2 ]))) + ".";
+        ip_str += std::to_string(static_cast<int>(static_cast<unsigned char>(peers[i + 3 ])));
+
+        int port = (static_cast<unsigned char>(peers[i+4]) << 8) | static_cast<unsigned char>(peers[i+5]); // This might be off
+        
+        std::string new_ip = ip_str;
+        peer_struct.ip = new_ip;
+        peer_struct.port = port;
+        std::cout << new_ip + "port: " + std::to_string(port) << std::endl;
+        ip_str = "";
+    }
+
+    return peers_list;
+}
