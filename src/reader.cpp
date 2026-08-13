@@ -100,7 +100,7 @@ BencodeString BencodeParser::decodeString(const std::string& data,size_t& index)
   
     
     size_t length = end - index; 
-    int result = std::stoi(data.substr(index, length));
+    int result = std::stoll(data.substr(index, length));
     index = end + 1;
 
     if (index >= data.size()){
@@ -140,7 +140,7 @@ BencodeInt BencodeParser::decodeInt(const std::string& data, size_t& index){
     
     size_t end = data.find('e', start);
     if (index >= data.size()) throw std::runtime_error("No e found at the end for ints");
-    int value = std::stoi(data.substr(start, end - start));
+    int value = std::stol(data.substr(start, end - start));
     index = end + 1;       
 
     return value;
@@ -301,7 +301,7 @@ int main() {
     Torrent torrent;
     TorrentFile tf = torrent.populate_torrent(node);
     std::string sub = test_data.substr(test.info_start, test.info_end  - test.info_start);
-    tf.info_hash = torrent.url_encode(calculateSHA1(test_data)); // Url encode the hash
+    tf.info_hash = torrent.url_encode(calculateSHA1(sub)); // Url encode the hash
     tf.peer_id = torrent.url_encode(get_peer("-CC0001-"));
 
 

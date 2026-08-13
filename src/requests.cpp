@@ -66,6 +66,12 @@ BencodeDict extractTrackerDictionary(const std::string& raw_http_response, Benco
 
 void get_interval_peers(BencodeDict dict, BencodeInt& interval, BencodeString& peers){
 
+    if (dict.count("failure reason")) {
+        auto reason = std::get<BencodeString>(dict["failure reason"]->value);
+
+        std::cout << "Tracker failure: " << reason << '\n';
+    }
+
     interval = std::get<BencodeInt>(dict["interval"]->value);
     peers = std::get<BencodeString>(dict["peers"]->value);
 
