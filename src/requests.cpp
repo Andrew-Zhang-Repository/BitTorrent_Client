@@ -6,6 +6,19 @@
 #include <sys/time.h>
 #include <cerrno>
 
+
+enum class message_code {
+    CHOKE = 0,
+    UNCHOKE = 1,
+    INTERESTED = 2,
+    NOT_INTERESTED = 3,
+    HAVE = 4,
+    BITFIELD = 5,
+    REQUEST = 6,
+    PIECE = 7,
+    CANCEL = 8
+};
+
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
 
     size_t totalSize = size * nmemb;
@@ -104,11 +117,30 @@ std::string get_handshake(std::string info_hash, std::string peer_id){
     return return_str;
 }
 
+std::string recv_exact(int n,int sock){
+    std::string peer_response(n,'\0');
+    peer_response.resize(n);
+    char* buffer_ptr = &peer_response[0];
+    int bytes_received = 0;
+    
+    while (bytes_received < n) {
+        int result = recv(sock, buffer_ptr + bytes_received, n - bytes_received, 0);
+        if (result <= 0) {
+            std::cerr << "Peer dropped connection or network error." << std::endl;
+            close(sock);
+            return "";
+        }
+        bytes_received += result;
+    }
+   
+    return peer_response;
+}
+
 bool connect_and_send(std::string handshake, peer peer, std::string info_hash){
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         std::cerr << "Socket creation error\n";
-        return -1;
+        return false;
     }
 
     sockaddr_in serv_addr;
@@ -142,9 +174,9 @@ bool connect_and_send(std::string handshake, peer peer, std::string info_hash){
         return false;
     }
 
+    std::string peer_response = recv_exact(68,sock);
+    /*int bytes_received = 0;
     char peer_response[68];
-    int bytes_received = 0;
-    
     while (bytes_received < 68) {
         int result = recv(sock, peer_response + bytes_received, 68 - bytes_received, 0);
         if (result <= 0) {
@@ -157,7 +189,9 @@ bool connect_and_send(std::string handshake, peer peer, std::string info_hash){
 
     std::string sub(peer_response + 28, 20);
     std::string rec_hash = sub;
-
+    */
+    std::cout << peer_response.size() << std::endl;
+    std::string rec_hash = peer_response.substr(28,20);
     if (rec_hash == info_hash){
         // Start recieving packets
         std::cout<< "ready to start download" << std::endl;

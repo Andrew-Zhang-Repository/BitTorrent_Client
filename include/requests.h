@@ -12,3 +12,4 @@ BencodeDict extractTrackerDictionary(const std::string& raw_http_response, Benco
 void get_interval_peers(BencodeDict dict, BencodeInt& interval, BencodeString& peers);
 std::string get_handshake(std::string info_hash, std::string peer_id);
 bool connect_and_send(std::string handshake, peer peer, std::string info_hash);
+std::string recv_exact(int n,int sock);
