@@ -238,43 +238,6 @@ BencodeDict BencodeParser::decodeDict(const std::string& data, size_t& index){
 }
 
 
-std::string calculateSHA1(const std::string& data) {
-  
-    unsigned char hash[EVP_MAX_MD_SIZE];
-    unsigned int lengthOfHash = 0;
-
-    EVP_MD_CTX* context = EVP_MD_CTX_new();
-    if (context == nullptr) {
-        throw std::runtime_error("Failed to create OpenSSL context");
-    }
-
-    if (EVP_DigestInit_ex(context, EVP_sha1(), nullptr) != 1) {
-        EVP_MD_CTX_free(context);
-        throw std::runtime_error("Failed to initialize SHA-1");
-    }
-
-    if (EVP_DigestUpdate(context, data.c_str(), data.length()) != 1) {
-        EVP_MD_CTX_free(context);
-        throw std::runtime_error("Failed to update SHA-1 hash");
-    }
-
-    if (EVP_DigestFinal_ex(context, hash, &lengthOfHash) != 1) {
-        EVP_MD_CTX_free(context);
-        throw std::runtime_error("Failed to finalize SHA-1 hash");
-    }
-
-    EVP_MD_CTX_free(context);
-
-    // Hex to make the hash readable maybe need it later
-    /*std::stringstream hexStream;
-    for (unsigned int i = 0; i < lengthOfHash; ++i) {
-        hexStream << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
-    }
-
-    return hexStream.str();*/
-
-    return std::string(reinterpret_cast<char*>(hash), lengthOfHash);
-}
 
 
 std::string readTorrentFile(const std::string& filePath) {
@@ -331,6 +294,11 @@ int main() {
     else{
         std::vector<peer> peers_list = torrent.extract_peers(peers);
         std::string handshake = get_handshake(hashed,peer_id);
+
+        for (auto i : peers_list){
+            std::cout << i.ip +" port: " + std::to_string(i.port) << std::endl;
+            connect_and_send(handshake,i,hashed);
+        }
     }
     // else get peers logic
 

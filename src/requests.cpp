@@ -1,5 +1,10 @@
 #include "../include/requests.h"
-
+#include <cstring>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <sys/time.h>
+#include <cerrno>
 
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
 
@@ -97,4 +102,72 @@ std::string get_handshake(std::string info_hash, std::string peer_id){
     return_str += peer_id;
 
     return return_str;
+}
+
+bool connect_and_send(std::string handshake, peer peer, std::string info_hash){
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        std::cerr << "Socket creation error\n";
+        return -1;
+    }
+
+    sockaddr_in serv_addr;
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(peer.port);
+
+    struct timeval tv;
+    tv.tv_sec = 15;       
+    tv.tv_usec = 0;     
+
+    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+        std::cerr << "Error setting timeout" << std::endl;
+        return false;
+    }
+
+    if (inet_pton(AF_INET, peer.ip.c_str(), &serv_addr.sin_addr) <= 0) {
+        std::cerr << "Invalid address\n";
+        close(sock);
+        return false;
+    }
+
+    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+        std::cerr << "Connection failed\n";
+        close(sock);
+        return false;
+    }
+
+    if (send(sock, handshake.c_str(), handshake.length(), 0) != 68) {
+        std::cerr << "Failed to send full handshake." << std::endl;
+        close(sock);
+        return false;
+    }
+
+    char peer_response[68];
+    int bytes_received = 0;
+    
+    while (bytes_received < 68) {
+        int result = recv(sock, peer_response + bytes_received, 68 - bytes_received, 0);
+        if (result <= 0) {
+            std::cerr << "Peer dropped connection or network error." << std::endl;
+            close(sock);
+            return false;
+        }
+        bytes_received += result;
+    }
+
+    std::string sub(peer_response + 28, 20);
+    std::string rec_hash = sub;
+
+    if (rec_hash == info_hash){
+        // Start recieving packets
+        std::cout<< "ready to start download" << std::endl;
+        close(sock);
+        return true;
+    }
+    else{
+        std::cout<< "hashes don't match" << std::endl;
+        close(sock);
+        return false;
+    }
+
 }
