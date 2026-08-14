@@ -5,19 +5,14 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <cerrno>
+#include <iostream>
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <cstring>
 
-
-enum class message_code {
-    CHOKE = 0,
-    UNCHOKE = 1,
-    INTERESTED = 2,
-    NOT_INTERESTED = 3,
-    HAVE = 4,
-    BITFIELD = 5,
-    REQUEST = 6,
-    PIECE = 7,
-    CANCEL = 8
-};
 
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
 
@@ -118,7 +113,7 @@ std::string get_handshake(std::string info_hash, std::string peer_id){
 }
 
 std::string recv_exact(int n,int sock){
-    std::string peer_response(n,'\0');
+    std::string peer_response;
     peer_response.resize(n);
     char* buffer_ptr = &peer_response[0];
     int bytes_received = 0;
@@ -128,12 +123,106 @@ std::string recv_exact(int n,int sock){
         if (result <= 0) {
             std::cerr << "Peer dropped connection or network error." << std::endl;
             close(sock);
-            return "";
+            return {};
         }
         bytes_received += result;
     }
    
     return peer_response;
+}
+
+int read_message(int sock,int &ben,std::string &payload){
+    std::string first_four = recv_exact(4,sock);
+    std::string fith = recv_exact(1,sock);
+
+    if (first_four.size() != 4){
+        throw std::runtime_error("Did not get 4 big edian bytes after handshake");
+    }
+
+    if (fith.size() != 1){
+        throw std::runtime_error("Could not get message id");
+    }
+    int id = static_cast<int>(static_cast<char>(fith[fith.size()-1]));
+
+    uint32_t length = (uint8_t)first_four[0] << 24 | (uint8_t)first_four[1] << 16 |
+                      (uint8_t)first_four[2] << 8  | (uint8_t)first_four[3];
+
+    if (length == 0){return - 1;}
+    payload = recv_exact(length - 1,sock);
+    if (payload.size() != length - 1){ return - 1;}
+
+    ben = length;
+    
+
+    return id;
+}
+
+void handle_message(message_code id, const std::string& payload) {
+    switch (id) {
+        case message_code::CHOKE:
+            // choke_handler();
+            break;
+        case message_code::UNCHOKE:
+            // unchoke_handler();
+            break;
+        case message_code::HAVE:
+            // have_handler(payload);
+            break;
+        case message_code::BITFIELD:
+            // bitfield_handler(payload);
+            break;
+        case message_code::PIECE:
+            // piece_handler(payload);
+            break;
+        default:
+            std::cout << "Ignored unhandled message ID." << std::endl;
+            break;
+    }
+}
+
+//Fully generated check for issues later
+bool connectWithTimeout(int sock, const struct sockaddr* addr, socklen_t addrLen, int timeoutSec) {
+    // 1. Set socket to non-blocking mode
+    int flags = fcntl(sock, F_GETFL, 0);
+    if (flags < 0) return false;
+    if (fcntl(sock, F_SETFL, flags | O_NONBLOCK) < 0) return false;
+
+    int res = connect(sock, addr, addrLen);
+    if (res < 0) {
+        if (errno != EINPROGRESS) {
+            return false; 
+        }
+
+        fd_set writeFds;
+        FD_ZERO(&writeFds);
+        FD_SET(sock, &writeFds);
+
+        struct timeval tv;
+        tv.tv_sec = timeoutSec;
+        tv.tv_usec = 0;
+        res = select(sock + 1, nullptr, &writeFds, nullptr, &tv);
+
+        if (res < 0) {
+            return false;
+        } else if (res == 0) {
+            errno = ETIMEDOUT;
+            return false;
+        } else {
+            int so_error = 0;
+            socklen_t len = sizeof(so_error);
+            if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &so_error, &len) < 0) {
+                return false;
+            }
+            if (so_error != 0) {
+                errno = so_error;
+                return false; 
+            }
+        }
+    }
+
+    if (fcntl(sock, F_SETFL, flags) < 0) return false;
+
+    return true;
 }
 
 bool connect_and_send(std::string handshake, peer peer, std::string info_hash){
@@ -162,7 +251,7 @@ bool connect_and_send(std::string handshake, peer peer, std::string info_hash){
         return false;
     }
 
-    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+    if (!(connectWithTimeout(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr),10))) {
         std::cerr << "Connection failed\n";
         close(sock);
         return false;
@@ -190,12 +279,19 @@ bool connect_and_send(std::string handshake, peer peer, std::string info_hash){
     std::string sub(peer_response + 28, 20);
     std::string rec_hash = sub;
     */
-    std::cout << peer_response.size() << std::endl;
+    if (peer_response.size()!=68){
+        return false;
+    }
     std::string rec_hash = peer_response.substr(28,20);
     if (rec_hash == info_hash){
         // Start recieving packets
         std::cout<< "ready to start download" << std::endl;
-        close(sock);
+        int ben = 0;
+        std::string payload;
+        int id = read_message(sock,ben,payload);
+        std::cout<< ben << std::endl;
+        std::cout<< id << std::endl;
+        std::cout<< payload << std::endl;
         return true;
     }
     else{

@@ -297,7 +297,8 @@ int main() {
 
         for (auto i : peers_list){
             std::cout << i.ip +" port: " + std::to_string(i.port) << std::endl;
-            connect_and_send(handshake,i,hashed);
+            bool rizz = connect_and_send(handshake,i,hashed);
+            std::cout << rizz << std::endl;
         }
     }
     // else get peers logic
