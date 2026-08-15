@@ -160,11 +160,11 @@ bool connectWithTimeout(int sock, const struct sockaddr* addr, socklen_t addrLen
     return true;
 }
 
-bool connect_and_send(std::string handshake, peer peer, std::string info_hash){
+int connect_and_send(std::string handshake, peer peer, std::string info_hash){
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         std::cerr << "Socket creation error\n";
-        return false;
+        return -1;
     }
 
     sockaddr_in serv_addr;
@@ -177,25 +177,25 @@ bool connect_and_send(std::string handshake, peer peer, std::string info_hash){
 
     if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
         std::cerr << "Error setting timeout" << std::endl;
-        return false;
+        return -1;
     }
 
     if (inet_pton(AF_INET, peer.ip.c_str(), &serv_addr.sin_addr) <= 0) {
         std::cerr << "Invalid address\n";
         close(sock);
-        return false;
+        return -1;
     }
 
     if (!(connectWithTimeout(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr),5))) {
         std::cerr << "Connection failed\n";
         close(sock);
-        return false;
+        return -1;
     }
 
     if (send(sock, handshake.c_str(), handshake.length(), 0) != 68) {
         std::cerr << "Failed to send full handshake." << std::endl;
         close(sock);
-        return false;
+        return -1;
     }
 
     std::string peer_response = recv_exact(68,sock);
@@ -219,20 +219,13 @@ bool connect_and_send(std::string handshake, peer peer, std::string info_hash){
     }
     std::string rec_hash = peer_response.substr(28,20);
     if (rec_hash == info_hash){
-        // Start recieving packets
         std::cout<< "ready to start download" << std::endl;
-        int ben = 0;
-        std::string payload;
-        int id = read_message(sock,ben,payload);
-        std::cout<< ben << std::endl;
-        std::cout<< id << std::endl;
-        std::cout<< payload << std::endl;
-        return true;
+        return sock;
     }
     else{
         std::cout<< "hashes don't match" << std::endl;
         close(sock);
-        return false;
+        return -1;
     }
 
 }

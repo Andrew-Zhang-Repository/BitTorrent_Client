@@ -4,7 +4,7 @@
 #include <map>
 #include <variant>
 #include <memory>
-
+#include "ids.h"
 
 struct BencodeNode; 
 using BencodeInt = long long;

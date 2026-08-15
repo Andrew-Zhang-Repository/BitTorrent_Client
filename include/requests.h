@@ -13,5 +13,5 @@ std::string get_response(std::string url);
 BencodeDict extractTrackerDictionary(const std::string& raw_http_response, BencodeParser& parser);
 void get_interval_peers(BencodeDict dict, BencodeInt& interval, BencodeString& peers);
 std::string get_handshake(std::string info_hash, std::string peer_id);
-bool connect_and_send(std::string handshake, peer peer, std::string info_hash);
+int connect_and_send(std::string handshake, peer peer, std::string info_hash);
 bool connectWithTimeout(int sock, const struct sockaddr* addr, socklen_t addrLen, int timeoutSec);

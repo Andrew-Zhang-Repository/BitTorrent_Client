@@ -2,6 +2,7 @@
 #include "../include/torrent_engine.h"
 #include "../include/peer.h"
 #include "../include/requests.h"
+#include "../include/message.h"
 #include <iostream>
 #include <stdexcept>
 #include <map>
@@ -294,11 +295,25 @@ int main() {
     else{
         std::vector<peer> peers_list = torrent.extract_peers(peers);
         std::string handshake = get_handshake(hashed,peer_id);
-
+        int active_sock = -1;
         for (auto i : peers_list){
             std::cout << i.ip +" port: " + std::to_string(i.port) << std::endl;
-            bool rizz = connect_and_send(handshake,i,hashed);
+            int id;
+            std::string payload;
+            int length;
+
+            int rizz = connect_and_send(handshake,i,hashed);
+            active_sock = rizz;
+            if (rizz != -1){
+                break;
+
+            }
             std::cout << rizz << std::endl;
+        }
+
+        if (active_sock != -1){
+            // Message loop FOR NOW
+            run_message_loop(active_sock,tf.piece_length);
         }
     }
     // else get peers logic

@@ -16,19 +16,19 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
-
-
-enum class message_code: uint8_t {
-    CHOKE = 0,
-    UNCHOKE = 1,
-    INTERESTED = 2,
-    NOT_INTERESTED = 3,
-    HAVE = 4,
-    BITFIELD = 5,
-    REQUEST = 6,
-    PIECE = 7,
-    CANCEL = 8
+#include "ids.h"
+#include <vector>
+#pragma once
+struct DownloadState;
+struct DownloadState {
+    uint32_t current_piece_index = 0;
+    uint32_t current_block_offset = 0;
 };
-void handle_message(message_code id, const std::string& payload);
-int read_message(int sock,int &ben,std::string &payload);
+
+
+void handle_message(int sock, message_code id, const std::string& payload, DownloadState &ds, long long tor_length);
 std::string recv_exact(int n,int sock);
+message_code get_code(int id);
+void send_interested(int sock);
+void run_message_loop(int sock, long long tor_length);
+void send_request(int sock, uint32_t piece_index, uint32_t block_offset, long long block_length);
