@@ -5,18 +5,7 @@
 #include "../include/reader.h"
 #include "../include/torrent_engine.h"
 #include "../include/peer.h"
-
-enum class message_code: uint8_t {
-    CHOKE = 0,
-    UNCHOKE = 1,
-    INTERESTED = 2,
-    NOT_INTERESTED = 3,
-    HAVE = 4,
-    BITFIELD = 5,
-    REQUEST = 6,
-    PIECE = 7,
-    CANCEL = 8
-};
+#include "../include/message.h"
 
 
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp);
@@ -25,7 +14,4 @@ BencodeDict extractTrackerDictionary(const std::string& raw_http_response, Benco
 void get_interval_peers(BencodeDict dict, BencodeInt& interval, BencodeString& peers);
 std::string get_handshake(std::string info_hash, std::string peer_id);
 bool connect_and_send(std::string handshake, peer peer, std::string info_hash);
-std::string recv_exact(int n,int sock);
-int read_message(int sock,int &ben,std::string &payload);
-void handle_message(message_code id, const std::string& payload);
 bool connectWithTimeout(int sock, const struct sockaddr* addr, socklen_t addrLen, int timeoutSec);
