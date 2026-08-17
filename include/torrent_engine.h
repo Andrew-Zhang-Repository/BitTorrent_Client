@@ -19,7 +19,7 @@ struct TorrentFileEntry
 
 struct peer{
     std::string ip;
-    long long port;
+    long long port; 
 };
 
 struct TorrentFile {
@@ -29,7 +29,7 @@ struct TorrentFile {
     std::string name;
     long long length;           
     long long piece_length;    
-    std::string pieces_hashes;  
+    std::string pieces;  
     std::string info_hash;
     std::vector<TorrentFileEntry> files;     
 };

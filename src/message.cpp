@@ -1,8 +1,11 @@
 
 #include "../include/message.h"
 #include <arpa/inet.h> 
+// Standard BitTorrent block size is always 16 KB
+const uint32_t STANDARD_BLOCK_SIZE = 16384;
 
-void handle_message(int sock, message_code id, const std::string& payload, DownloadState &ds, long long tor_length) {
+
+void handle_message(int sock, message_code id, const std::string& payload, DownloadState &ds, TorrentFile tf, std::ofstream &outfile) {
     switch (id) {
         case message_code::CHOKE:
             std::cout << "<- Peer CHOKED." << std::endl;
@@ -13,7 +16,8 @@ void handle_message(int sock, message_code id, const std::string& payload, Downl
             // TODO: Call send_request() here!
             ds.current_piece_index = 0;
             ds.current_block_offset = 0;
-            send_request(sock, ds.current_piece_index, ds.current_block_offset,tor_length);
+            ds.piece_buffer.clear();
+            send_request(sock, ds.current_piece_index, ds.current_block_offset,STANDARD_BLOCK_SIZE);
             break;
         
         case message_code::BITFIELD:
@@ -22,12 +26,73 @@ void handle_message(int sock, message_code id, const std::string& payload, Downl
             break;
             
         case message_code::PIECE:
+
             std::cout << "<- Received a PIECE of the file!" << std::endl;
+            retrieve(ds,tf,payload,sock,outfile);
             break;
             
         default:
             std::cout << "Ignored unhandled message ID: " << static_cast<int>(id) << std::endl;
             break;
+    }
+}
+
+void retrieve(DownloadState &ds, TorrentFile tf ,const std::string& payload, int sock, std::ofstream &outfile){
+    std::string block_data = payload.substr(8);
+    ds.piece_buffer += block_data;
+    ds.current_block_offset += block_data.size();
+
+    if (ds.current_block_offset < tf.piece_length) {
+        
+        uint32_t remaining = tf.piece_length - ds.current_block_offset;
+        uint32_t next_request_size;
+
+        if (remaining < STANDARD_BLOCK_SIZE){
+            next_request_size = remaining;
+        }
+        else{
+            next_request_size = STANDARD_BLOCK_SIZE;
+        }
+        
+        send_request(sock, ds.current_piece_index, ds.current_block_offset, next_request_size);
+        
+    }
+    else{
+
+        std::string expected_hash = tf.pieces.substr(ds.current_piece_index * 20, 20);
+        std::string actual_hash = calculateSHA1(ds.piece_buffer);
+        
+        if (actual_hash == expected_hash) {
+            std::cout << "[SUCCESS] Hash match! Writing to disk" << std::endl;
+            
+            
+            outfile.seekp(ds.current_piece_index * tf.piece_length);
+            outfile.write(ds.piece_buffer.data(), ds.piece_buffer.size());
+            outfile.close();
+            
+            ds.current_piece_index++;
+            ds.current_block_offset = 0;
+            ds.piece_buffer.clear();
+            
+            uint32_t total_pieces = tf.pieces.length() / 20;
+        
+            if (ds.current_piece_index >= total_pieces) {
+                std::cout << "\n========================================" << std::endl;
+                std::cout << "   DOWNLOAD DONE IN ROOT DIRECTORY" << std::endl;
+                std::cout << "========================================\n" << std::endl;
+                close(sock);
+                exit(0); 
+            }
+            
+            send_request(sock, ds.current_piece_index, ds.current_block_offset, STANDARD_BLOCK_SIZE);
+        }
+        else{
+            std::cerr << "[ERROR] Hash mismatch! Corrupted piece. Retrying..." << std::endl;
+            ds.current_block_offset = 0;
+            ds.piece_buffer.clear();
+            send_request(sock, ds.current_piece_index, ds.current_block_offset, STANDARD_BLOCK_SIZE);
+        }
+
     }
 }
 
@@ -64,6 +129,7 @@ std::string recv_exact(int n,int sock){
 }
 
 void send_request(int sock, uint32_t piece_index, uint32_t block_offset, long long block_length) {
+   
     std::vector<uint8_t> send_vect(17);
     send_vect.reserve(17);
     uint32_t net_len = htonl(13);
@@ -84,9 +150,14 @@ void send_request(int sock, uint32_t piece_index, uint32_t block_offset, long lo
     std::cout << "-> Sent REQUEST for Piece: " << piece_index << ", Offset: " << block_offset << std::endl;
 }
 
-void run_message_loop(int sock, long long tor_length) {
+void run_message_loop(int sock, TorrentFile tf) {
 
     struct DownloadState ds;
+    std::ofstream outfile("../example.pdf", std::ios::binary | std::ios::out);
+    if (!outfile.is_open()) {
+        std::cerr << "Failed to open output file: " << "../example.pdf" << std::endl;
+        return;
+    }
     while (true) { 
       
         std::string length_str = recv_exact(4, sock);
@@ -110,6 +181,6 @@ void run_message_loop(int sock, long long tor_length) {
         }
    
         //Handle the message
-        handle_message(sock, msg_id, payload, ds, tor_length);
+        handle_message(sock, msg_id, payload, ds, tf, outfile);
     }
 }

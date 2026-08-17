@@ -269,7 +269,7 @@ int main() {
     std::string peer_id = get_peer("-CC0001-");
     tf.info_hash = torrent.url_encode(hashed); // Url encode the hash
     tf.peer_id = torrent.url_encode(peer_id);
-
+    std::cout<< "Total pieces: " + std::to_string(tf.pieces.length());
 
     std::string tracker_url = tf.announce_url + 
     "?info_hash=" + tf.info_hash +
@@ -313,7 +313,9 @@ int main() {
 
         if (active_sock != -1){
             // Message loop FOR NOW
-            run_message_loop(active_sock,tf.piece_length);
+
+            std::cout << "Entering message loop" << std::endl;
+            run_message_loop(active_sock,tf);
         }
     }
     // else get peers logic

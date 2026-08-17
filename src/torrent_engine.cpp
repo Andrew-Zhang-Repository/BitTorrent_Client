@@ -18,7 +18,7 @@ TorrentFile Torrent::populate_torrent(std::shared_ptr<BencodeNode> node){
     return_file.announce_url = announce_str;
     return_file.name = std::get<BencodeString>(dict_info["name"]->value);
     return_file.piece_length = std::get<BencodeInt>(dict_info["piece length"]->value);
-    return_file.pieces_hashes = std::get<BencodeString>(dict_info["pieces"]->value);
+    return_file.pieces = std::get<BencodeString>(dict_info["pieces"]->value);
 
     if (dict_info.count("files") != 0) {
         // Consider multi files later

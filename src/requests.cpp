@@ -186,7 +186,7 @@ int connect_and_send(std::string handshake, peer peer, std::string info_hash){
         return -1;
     }
 
-    if (!(connectWithTimeout(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr),5))) {
+    if (!(connectWithTimeout(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr),10))) {
         std::cerr << "Connection failed\n";
         close(sock);
         return -1;
@@ -215,7 +215,7 @@ int connect_and_send(std::string handshake, peer peer, std::string info_hash){
     std::string rec_hash = sub;
     */
     if (peer_response.size()!=68){
-        return false;
+        return -1;
     }
     std::string rec_hash = peer_response.substr(28,20);
     if (rec_hash == info_hash){
