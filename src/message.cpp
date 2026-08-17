@@ -42,9 +42,21 @@ void retrieve(DownloadState &ds, TorrentFile tf ,const std::string& payload, int
     ds.piece_buffer += block_data;
     ds.current_block_offset += block_data.size();
 
-    if (ds.current_block_offset < tf.piece_length) {
-        
-        uint32_t remaining = tf.piece_length - ds.current_block_offset;
+
+    uint32_t total_pieces = tf.pieces.length() / 20;
+    uint32_t current_piece_size = tf.piece_length;
+
+    if (ds.current_piece_index == total_pieces - 1) {
+        current_piece_size = tf.length % tf.piece_length;
+        if (current_piece_size == 0){
+            current_piece_size = tf.piece_length;
+        }
+
+    }
+
+
+    if (ds.current_block_offset < current_piece_size){
+        uint32_t remaining = current_piece_size - ds.current_block_offset;
         uint32_t next_request_size;
 
         if (remaining < STANDARD_BLOCK_SIZE){
@@ -55,7 +67,7 @@ void retrieve(DownloadState &ds, TorrentFile tf ,const std::string& payload, int
         }
         
         send_request(sock, ds.current_piece_index, ds.current_block_offset, next_request_size);
-        
+
     }
     else{
 
@@ -68,7 +80,7 @@ void retrieve(DownloadState &ds, TorrentFile tf ,const std::string& payload, int
             
             outfile.seekp(ds.current_piece_index * tf.piece_length);
             outfile.write(ds.piece_buffer.data(), ds.piece_buffer.size());
-            outfile.close();
+            outfile.flush();
             
             ds.current_piece_index++;
             ds.current_block_offset = 0;
@@ -84,13 +96,28 @@ void retrieve(DownloadState &ds, TorrentFile tf ,const std::string& payload, int
                 exit(0); 
             }
             
-            send_request(sock, ds.current_piece_index, ds.current_block_offset, STANDARD_BLOCK_SIZE);
+            uint32_t next_piece_size = tf.piece_length;
+            if (ds.current_piece_index == total_pieces - 1) {
+                next_piece_size = tf.length % tf.piece_length;
+                if (next_piece_size == 0) next_piece_size = tf.piece_length;
+            }
+            uint32_t req_size = (next_piece_size < STANDARD_BLOCK_SIZE) ? next_piece_size : STANDARD_BLOCK_SIZE;
+            
+            send_request(sock, ds.current_piece_index, ds.current_block_offset, req_size);
         }
         else{
             std::cerr << "[ERROR] Hash mismatch! Corrupted piece. Retrying..." << std::endl;
             ds.current_block_offset = 0;
             ds.piece_buffer.clear();
-            send_request(sock, ds.current_piece_index, ds.current_block_offset, STANDARD_BLOCK_SIZE);
+
+            uint32_t retry_piece_size = tf.piece_length;
+            if (ds.current_piece_index == total_pieces - 1) {
+                retry_piece_size = tf.length % tf.piece_length;
+                if (retry_piece_size == 0) retry_piece_size = tf.piece_length;
+            }
+            uint32_t req_size = (retry_piece_size < STANDARD_BLOCK_SIZE) ? retry_piece_size : STANDARD_BLOCK_SIZE;
+
+            send_request(sock, ds.current_piece_index, ds.current_block_offset, req_size);
         }
 
     }
@@ -153,9 +180,9 @@ void send_request(int sock, uint32_t piece_index, uint32_t block_offset, long lo
 void run_message_loop(int sock, TorrentFile tf) {
 
     struct DownloadState ds;
-    std::ofstream outfile("../example.pdf", std::ios::binary | std::ios::out);
+    std::ofstream outfile("../" + tf.name, std::ios::binary | std::ios::out);
     if (!outfile.is_open()) {
-        std::cerr << "Failed to open output file: " << "../example.pdf" << std::endl;
+        std::cerr << "Failed to open output file: " << "../" + tf.name << std::endl;
         return;
     }
     while (true) { 

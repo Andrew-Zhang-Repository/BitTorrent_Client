@@ -264,6 +264,7 @@ int main() {
     auto node = test.decodeElement(test_data, index);
     Torrent torrent;
     TorrentFile tf = torrent.populate_torrent(node);
+    std::cout << tf.name << std::endl;
     std::string sub = test_data.substr(test.info_start, test.info_end  - test.info_start);
     std::string hashed = calculateSHA1(sub);
     std::string peer_id = get_peer("-CC0001-");
