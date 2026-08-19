@@ -8,22 +8,26 @@
 #include "reader.h"
 #include <iostream>
 struct TorrentFile;
-struct TorrentFileEntry;
 struct peer;
+struct FileEntry;
 
-struct TorrentFileEntry
-{
-    std::vector<std::string> path;
-    long long length;
-};
 
 struct peer{
     std::string ip;
     long long port; 
 };
 
+struct FileEntry {
+    std::string path;
+    uint64_t length;
+    uint64_t global_start; 
+    uint64_t global_end;
+};
+
+
 struct TorrentFile {
-  
+    bool list = false;
+    std::vector<std::string> announce_list;
     std::string announce_url; 
     std::string peer_id;
     std::string name;
@@ -31,7 +35,8 @@ struct TorrentFile {
     long long piece_length;    
     std::string pieces;  
     std::string info_hash;
-    std::vector<TorrentFileEntry> files;     
+    std::vector<FileEntry> files;
+    uint64_t total_length;    
 };
 
 

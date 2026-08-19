@@ -17,6 +17,8 @@
 #include <iterator>
 #include <thread>
 
+constexpr size_t MAX_PEER_THREADS = 50;
+
 void printNode(const BencodeNode& node);
 
 void printList(const BencodeList& list)
@@ -260,13 +262,18 @@ std::string readTorrentFile(const std::string& filePath) {
 
 
 int main() {
-    std::string test_data = readTorrentFile("small_file.torrent");
+    std::string test_data = readTorrentFile("big-buck-bunny.torrent");
     BencodeParser test;
     size_t index = 0;
     auto node = test.decodeElement(test_data, index);
     Torrent torrent;
     TorrentFile tf = torrent.populate_torrent(node);
-    std::cout << tf.name << std::endl;
+    return 0;
+
+
+
+    
+    /*std::cout << tf.name << std::endl;
     std::string sub = test_data.substr(test.info_start, test.info_end  - test.info_start);
     std::string hashed = calculateSHA1(sub);
     std::string peer_id = get_peer("-CC0001-");
@@ -320,6 +327,10 @@ int main() {
         std::vector<peer> peers_list = torrent.extract_peers(peers);
         std::string handshake = get_handshake(hashed,peer_id);
         for (auto i : peers_list){
+            if (workers.size() >= MAX_PEER_THREADS) {
+                std::cout << "Reached max peer threads (" << MAX_PEER_THREADS << "), skipping remaining peers." << std::endl;
+                break;
+            }
             std::cout << i.ip +" port: " + std::to_string(i.port) << std::endl;
 
             int rizz = connect_and_send(handshake,i,hashed);
@@ -348,7 +359,7 @@ int main() {
     std::cout << "\n========================================" << std::endl;
     std::cout << "   DOWNLOAD COMPLETE" << std::endl;
     std::cout << "========================================\n" << std::endl;
-    return 0;
+    return 0;*/
 }
 
 

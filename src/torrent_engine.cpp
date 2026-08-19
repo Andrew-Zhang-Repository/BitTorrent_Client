@@ -7,7 +7,7 @@
 #include <sstream>
 #include <algorithm>
 #include <iomanip>
-
+#include <cstdint> 
 TorrentFile Torrent::populate_torrent(std::shared_ptr<BencodeNode> node){
 
     TorrentFile return_file;
@@ -17,13 +17,47 @@ TorrentFile Torrent::populate_torrent(std::shared_ptr<BencodeNode> node){
     BencodeDict dict_info = std::get<BencodeDict>(dict["info"]->value);
     return_file.announce_url = announce_str;
     return_file.name = std::get<BencodeString>(dict_info["name"]->value);
-    return_file.piece_length = std::get<BencodeInt>(dict_info["piece length"]->value);
     return_file.pieces = std::get<BencodeString>(dict_info["pieces"]->value);
+    return_file.piece_length = std::get<BencodeInt>(dict_info["piece length"]->value);
+    if (dict.count("announce-list") != 0){
+        BencodeList nested_list = std::get<BencodeList>(dict["announce-list"]->value);
+        // Break up the list
+        std::vector<std::string> announce_list;
+        for (auto i : nested_list){
+            BencodeList outer = std::get<BencodeList>(i->value);
+            for (auto j : outer){
+                announce_list.push_back(std::get<BencodeString>(j->value));
+                
+            }
+        
+        }
+        return_file.announce_list = announce_list;
+        return_file.list = true;
+        
+    }
 
     if (dict_info.count("files") != 0) {
-        // Consider multi files later
+        // Count length by adding the length from list
+        std::uint64_t total = 0;
+        BencodeList files = std::get<BencodeList>(dict_info["files"]->value);
+        for (auto i : files){
+            BencodeDict dict_file = std::get<BencodeDict>(i->value);
+            FileEntry file_entry;
+            std::uint64_t file_length = std::get<BencodeInt>(dict_file["length"]->value);
+            file_entry.length = file_length;
+            file_entry.global_start = total;
+            file_entry.global_end = file_length + total;
+            total += std::get<BencodeInt>(dict_file["length"]->value);
+
+            BencodeList path_list = std::get<BencodeList>(dict_file["path"]->value);
+            for (auto j : path_list){
+                file_entry.path = std::get<BencodeString>(j->value);
+            }
+            return_file.files.push_back(file_entry);
+          
+        }
         std::cout << "Detected Multi-File Torrent!" << std::endl;
-        return_file.length = 0;
+        return_file.length = total;
     }
     else{
         return_file.length = std::get<BencodeInt>(dict_info["length"]->value);
@@ -32,6 +66,9 @@ TorrentFile Torrent::populate_torrent(std::shared_ptr<BencodeNode> node){
     return return_file;
 
 }
+
+
+
 
 std::string Torrent::url_encode(const std::string &aString){
 

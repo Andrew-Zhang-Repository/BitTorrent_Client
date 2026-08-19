@@ -12,6 +12,7 @@ using BencodeString = std::string;
 using BencodeList = std::vector<std::shared_ptr<BencodeNode>>;
 using BencodeDict = std::map<std::string, std::shared_ptr<BencodeNode>>;
 
+
 struct BencodeNode {
     std::variant<BencodeInt, BencodeString, BencodeList, BencodeDict> value;
 };
