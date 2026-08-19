@@ -3,6 +3,7 @@
 #include "../include/peer.h"
 #include "../include/requests.h"
 #include "../include/message.h"
+#include "../include/parrallel.h"
 #include <iostream>
 #include <stdexcept>
 #include <map>
@@ -14,6 +15,7 @@
 #include <sstream>
 #include <fstream>
 #include <iterator>
+#include <thread>
 
 void printNode(const BencodeNode& node);
 
@@ -258,7 +260,7 @@ std::string readTorrentFile(const std::string& filePath) {
 
 
 int main() {
-    std::string test_data = readTorrentFile("../small_file.torrent");
+    std::string test_data = readTorrentFile("small_file.torrent");
     BencodeParser test;
     size_t index = 0;
     auto node = test.decodeElement(test_data, index);
@@ -290,39 +292,63 @@ int main() {
     std::cout << interval << std::endl;
     std::cout << peers << std::endl;
 
+    int total_pieces = tf.pieces.length() / 20;
+    GlobalTorrentState gs;
+    gs.total_pieces = total_pieces;
+    gs.downloaded_pieces.assign((total_pieces + 7) / 8, 0);
+    for (int i = 0; i < total_pieces ; i++){
+        gs.missing_pieces.push(i);
+    }
+
+    std::ofstream outfile(tf.name, std::ios::binary | std::ios::out);
+    if (!outfile.is_open()) {
+        std::cerr << "Failed to open output file: " << "../" + tf.name << std::endl;
+        return 1;
+    }
+    if (tf.length > 0) {
+        outfile.seekp(tf.length - 1);
+        outfile.write("\0", 1);
+        outfile.seekp(0);
+    }
+
+    std::vector<std::thread> workers;
+    std::vector<int> sockets;
     if (peers.empty()){
         std::cout << "No other peers are currently online for this torrent." << std::endl;
     }
     else{
         std::vector<peer> peers_list = torrent.extract_peers(peers);
         std::string handshake = get_handshake(hashed,peer_id);
-        int active_sock = -1;
         for (auto i : peers_list){
             std::cout << i.ip +" port: " + std::to_string(i.port) << std::endl;
-            int id;
-            std::string payload;
-            int length;
 
             int rizz = connect_and_send(handshake,i,hashed);
-            active_sock = rizz;
             if (rizz != -1){
-                break;
-
+                sockets.push_back(rizz);
+                workers.emplace_back(run_message_loop, rizz, tf, std::ref(outfile), std::ref(gs));
             }
             std::cout << rizz << std::endl;
         }
 
-        if (active_sock != -1){
-            // Message loop FOR NOW
+        if (sockets.empty()) {
+            std::cout << "Could not connect to any peer." << std::endl;
+        } else {
+            while (!gs.done) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
 
-            std::cout << "Entering message loop" << std::endl;
-            run_message_loop(active_sock,tf);
+            for (int sock : sockets) shutdown(sock, SHUT_RDWR);
+
+            for (auto& t : workers) t.join();
         }
     }
     // else get peers logic
 
-    //printNode(*node);
-    std::cout << '\n';
+    outfile.close();
+    std::cout << "\n========================================" << std::endl;
+    std::cout << "   DOWNLOAD COMPLETE" << std::endl;
+    std::cout << "========================================\n" << std::endl;
+    return 0;
 }
 
 

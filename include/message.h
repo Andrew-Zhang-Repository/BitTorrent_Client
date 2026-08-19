@@ -20,12 +20,15 @@
 #include <vector>
 #include "../include/torrent_engine.h"
 #include "../include/peer.h"
+#include "../include/parrallel.h"
 #include <fstream>
 #include <cstdlib>
 #include <algorithm>
 #pragma once
 struct DownloadState;
 struct PendingRequest;
+struct PeerState;
+struct GlobalTorrentState;
 struct DownloadState {
     uint32_t current_piece_index = 0;
     uint32_t current_block_offset = 0;
@@ -36,18 +39,16 @@ struct DownloadState {
     uint32_t pipeline_depth = 10;
 };
 
-struct PendingRequest {
-    uint32_t piece_index;
-    uint32_t block_offset;
-    uint32_t block_length;
-};
 
 
-void handle_message(int sock, message_code id, const std::string& payload, DownloadState &ds, TorrentFile tf);
+#include <mutex>
+#include <queue>
+
+
+bool handle_message(int sock, message_code id, const std::string& payload, PeerState &ds, TorrentFile tf, std::ofstream &outfile, GlobalTorrentState& gs);
 std::string recv_exact(int n,int sock);
 message_code get_code(int id);
 void send_interested(int sock);
-void run_message_loop(int sock, TorrentFile tf);
+void run_message_loop(int sock, TorrentFile tf, std::ofstream &outfile, GlobalTorrentState& gs);
 PendingRequest send_request(int sock, uint32_t piece_index, uint32_t block_offset, long long block_length);
-void retrieve(DownloadState &ds, TorrentFile tf ,const std::string& payload, int sock, std::ofstream &outfile);
-void handle_message(int sock, message_code id, const std::string& payload, DownloadState &ds, TorrentFile tf, std::ofstream &outfile);
+bool retrieve(PeerState &ds, TorrentFile tf, const std::string& payload, int sock, std::ofstream &outfile, GlobalTorrentState& gs);

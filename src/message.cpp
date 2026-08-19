@@ -5,35 +5,53 @@
 // Standard BitTorrent block size is always 16 KB
 const uint32_t STANDARD_BLOCK_SIZE = 16384;
 
+uint32_t piece_size(const TorrentFile& tf, uint32_t index) {
+    uint32_t total_pieces = tf.pieces.length() / 20;
+    if (index == total_pieces - 1) {
+        uint32_t last = tf.length % tf.piece_length;
+        if (last == 0) last = tf.piece_length;
+        return last;
+    }
+    return tf.piece_length;
+}
+
+void fill_pipeline(int sock, PeerState& ds, const TorrentFile& tf) {
+    uint32_t target_size = piece_size(tf, ds.current_piece_index);
+    while (ds.pending_requests.size() < ds.pipeline_depth && ds.current_block_offset < target_size) {
+        uint32_t remaining = target_size - ds.current_block_offset;
+        uint32_t req_size = std::min(STANDARD_BLOCK_SIZE, remaining);
+        ds.pending_requests.push_back(send_request(sock, ds.current_piece_index, ds.current_block_offset, req_size));
+        ds.current_block_offset += req_size;
+    }
+}
 
 
-void handle_message(int sock, message_code id, const std::string& payload, DownloadState &ds, TorrentFile tf, std::ofstream &outfile) {
+
+bool handle_message(int sock, message_code id, const std::string& payload, PeerState &ds, TorrentFile tf, std::ofstream &outfile, GlobalTorrentState& gs) {
     switch (id) {
         case message_code::CHOKE:
             std::cout << "<- Peer CHOKED." << std::endl;
             break;
         
-        case message_code::UNCHOKE:
+        case message_code::UNCHOKE:{
             std::cout << "<- Peer UNCHOKED, request data." << std::endl;
-            // TODO: Call send_request() here!
-            ds.current_piece_index = 0;
-            ds.current_block_offset = 0;
-            ds.piece_buffer.clear();
-            ds.piece_buffer.assign(tf.piece_length, '\0'); 
-            ds.pending_requests.clear();
-            for (int i = 0; i < 10; i++) {
-                if (ds.current_block_offset >= tf.piece_length) break; 
-                
-                uint32_t remaining = tf.piece_length - ds.current_block_offset;
-                uint32_t req_size = (remaining < STANDARD_BLOCK_SIZE) ? remaining : STANDARD_BLOCK_SIZE;
+            // Get work from work queue
+            int piece_num = get_work(gs);
 
-                PendingRequest request = send_request(sock, ds.current_piece_index, ds.current_block_offset, req_size);
-                ds.pending_requests.push_back(request);
-                
-                ds.current_block_offset += req_size; 
+            if (piece_num == -1) {
+                std::cout << "No more pieces left to download!" << std::endl;
+                return true;
             }
+            ds.current_piece_index = piece_num;
+            ds.current_block_offset = 0;
+            ds.bytes_received = 0;
+            ds.piece_buffer.clear();
+            ds.piece_buffer.assign(piece_size(tf, ds.current_piece_index), '\0'); 
+            ds.pending_requests.clear();
+            fill_pipeline(sock, ds, tf);
             
             break;
+        }
         
         case message_code::BITFIELD:
             std::cout << "<- Received BITFIELD." << std::endl;
@@ -43,16 +61,16 @@ void handle_message(int sock, message_code id, const std::string& payload, Downl
         case message_code::PIECE:
 
             std::cout << "<- Received a PIECE of the file!" << std::endl;
-            retrieve(ds,tf,payload,sock,outfile);
-            break;
+            return retrieve(ds,tf,payload,sock,outfile,gs);
             
         default:
             std::cout << "Ignored unhandled message ID: " << static_cast<int>(id) << std::endl;
             break;
     }
+    return false;
 }
 
-void retrieve(DownloadState &ds, TorrentFile tf ,const std::string& payload, int sock, std::ofstream &outfile){
+bool retrieve(PeerState &ds, TorrentFile tf ,const std::string& payload, int sock, std::ofstream &outfile, GlobalTorrentState& gs){
     std::string block_data = payload.substr(8);
 
     uint32_t index = (static_cast<uint32_t>(static_cast<unsigned char>(payload[0])) << 24) |
@@ -78,76 +96,46 @@ void retrieve(DownloadState &ds, TorrentFile tf ,const std::string& payload, int
     std::copy(block_data.begin(), block_data.end(), ds.piece_buffer.begin() + offset);
     ds.bytes_received += block_data.size();
 
+    uint32_t target_size = piece_size(tf, index);
 
-
-    uint32_t total_pieces = tf.pieces.length() / 20;
-    uint32_t current_piece_size = tf.piece_length;
-
-    if (index == total_pieces - 1) {
-        current_piece_size = tf.length % tf.piece_length;
-        if (current_piece_size == 0){
-            current_piece_size = tf.piece_length;
-        }
-
-    }
-
-
-    if (ds.bytes_received == current_piece_size){
+    if (ds.bytes_received == target_size){
         std::string expected_hash = tf.pieces.substr(index * 20, 20);
         std::string actual_hash = calculateSHA1(ds.piece_buffer);
 
         if (actual_hash == expected_hash) {
             std::cout << "[SUCCESS] Hash match! Writing to disk" << std::endl;
             
+            {
+                std::lock_guard<std::mutex> lock(gs.file_mutex);
+                outfile.seekp(index * tf.piece_length);
+                outfile.write(ds.piece_buffer.data(), ds.piece_buffer.size());
+                outfile.flush();
+            }
             
-            outfile.seekp(index * tf.piece_length);
-            outfile.write(ds.piece_buffer.data(), ds.piece_buffer.size());
-            outfile.flush();
-            
-            ds.current_piece_index++;
+            mark_piece_downloaded(gs, index);
+            if (gs.done) return true;
+
+            int next_piece = get_work(gs);
+            if (next_piece == -1) return true;
+
+            ds.current_piece_index = next_piece;
             ds.current_block_offset = 0;
             ds.bytes_received = 0;
             ds.piece_buffer.clear();
-
-            uint32_t refill_piece_size = tf.piece_length;
-            if (ds.current_piece_index == total_pieces - 1) {
-                refill_piece_size = tf.length % tf.piece_length;
-                if (refill_piece_size == 0) refill_piece_size = tf.piece_length;
-            }
-            ds.piece_buffer.assign(refill_piece_size, '\0');
-            
-            uint32_t total_pieces = tf.pieces.length() / 20;
-        
-            if (ds.current_piece_index >= total_pieces) {
-                std::cout << "\n========================================" << std::endl;
-                std::cout << "   DOWNLOAD DONE IN ROOT DIRECTORY" << std::endl;
-                std::cout << "========================================\n" << std::endl;
-                close(sock);
-                exit(0); 
-            }
+            ds.piece_buffer.assign(piece_size(tf, ds.current_piece_index), '\0');
+            ds.pending_requests.clear();
+            fill_pipeline(sock, ds, tf);
         }
         else{
             ds.current_block_offset = 0;
             ds.bytes_received = 0;
             ds.piece_buffer.clear();
-            ds.piece_buffer.assign(current_piece_size, '\0');
+            ds.piece_buffer.assign(piece_size(tf, index), '\0');
+            fill_pipeline(sock, ds, tf);
         }
-
     }
 
-    uint32_t refill_piece_size = tf.piece_length;
-    if (ds.current_piece_index == total_pieces - 1) {
-        refill_piece_size = tf.length % tf.piece_length;
-        if (refill_piece_size == 0) refill_piece_size = tf.piece_length;
-    }
-    while (ds.pending_requests.size() < 10 && ds.current_block_offset < refill_piece_size){
-        uint32_t remaining =  refill_piece_size - ds.current_block_offset;
-        uint32_t req_size = std::min(STANDARD_BLOCK_SIZE, remaining);
-        ds.pending_requests.push_back(send_request(sock,ds.current_piece_index, ds.current_block_offset, req_size));
-        ds.current_block_offset += req_size;
-    }
-
-    
+    return false;
 }
     
     
@@ -214,16 +202,13 @@ PendingRequest send_request(int sock, uint32_t piece_index, uint32_t block_offse
     return request;
 }
 
-void run_message_loop(int sock, TorrentFile tf) {
+void run_message_loop(int sock, TorrentFile tf, std::ofstream &outfile, GlobalTorrentState& gs) {
 
-    struct DownloadState ds;
-    std::ofstream outfile("../" + tf.name, std::ios::binary | std::ios::out);
-    if (!outfile.is_open()) {
-        std::cerr << "Failed to open output file: " << "../" + tf.name << std::endl;
-        return;
-    }
+    PeerState ds;
+    ds.socket_fd = sock;
     while (true) { 
-      
+        if (gs.done) break;
+
         std::string length_str = recv_exact(4, sock);
         if (length_str.size() != 4) break; 
 
@@ -245,6 +230,13 @@ void run_message_loop(int sock, TorrentFile tf) {
         }
    
         //Handle the message
-        handle_message(sock, msg_id, payload, ds, tf, outfile);
+        if (handle_message(sock, msg_id, payload, ds, tf, outfile, gs)) break;
+    }
+
+    close(sock);
+    
+    if (!is_piece_downloaded(gs, ds.current_piece_index)) {
+        std::lock_guard<std::mutex> lock(gs.queue_mutex);
+        gs.missing_pieces.push(ds.current_piece_index);
     }
 }

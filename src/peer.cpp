@@ -24,15 +24,11 @@ std::string get_peer(std::string identifier){
    
     std::uniform_int_distribution<size_t> distr(0, char_list.length() - 1);
 
-
-    size_t randomIndex = distr(gen);
-    char randomChar = char_list[randomIndex];
-
     while (return_str.size() != 20){
         size_t randomIndex = distr(gen);
-        char randomChar = char_list[randomIndex];
+        char addchar = char_list[randomIndex];
 
-        return_str += randomChar;
+        return_str += addchar;
         
     }
 
