@@ -268,28 +268,35 @@ int main() {
     auto node = test.decodeElement(test_data, index);
     Torrent torrent;
     TorrentFile tf = torrent.populate_torrent(node);
-    return 0;
-
-
-
-    
-    /*std::cout << tf.name << std::endl;
     std::string sub = test_data.substr(test.info_start, test.info_end  - test.info_start);
     std::string hashed = calculateSHA1(sub);
     std::string peer_id = get_peer("-CC0001-");
     tf.info_hash = torrent.url_encode(hashed); // Url encode the hash
     tf.peer_id = torrent.url_encode(peer_id);
-    std::cout<< "Total pieces: " + std::to_string(tf.pieces.length());
 
-    std::string tracker_url = tf.announce_url + 
-    "?info_hash=" + tf.info_hash +
-    "&peer_id="   + tf.peer_id +
-    "&port=6881" +
-    "&uploaded=0" +
-    "&downloaded=0" +
-    "&left="      + std::to_string(tf.length) +
-    "&compact=1"; 
+    std::string response;
 
+    for (std::string i : tf.announce_list){
+        if (i.substr(0, 6) == "udp://") {
+            std::cout << "udp detected" << std::endl;
+            
+        }
+        else{
+            // normal tcp curl logic
+            std::string tracker_url = i + 
+            "?info_hash=" + tf.info_hash +
+            "&peer_id="   + tf.peer_id +
+            "&port=6881" +
+            "&uploaded=0" +
+            "&downloaded=0" +
+            "&left="      + std::to_string(tf.length) +
+            "&compact=1";
+            std::string response = get_response(tracker_url);
+        }
+    }
+ 
+
+    /*
     std::string response = get_response(tracker_url);
     BencodeDict return_dict = extractTrackerDictionary(response,test);
     BencodeInt interval = 0;

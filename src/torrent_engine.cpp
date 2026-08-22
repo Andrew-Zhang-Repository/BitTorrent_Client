@@ -24,10 +24,16 @@ TorrentFile Torrent::populate_torrent(std::shared_ptr<BencodeNode> node){
         // Break up the list
         std::vector<std::string> announce_list;
         for (auto i : nested_list){
+
             BencodeList outer = std::get<BencodeList>(i->value);
+
             for (auto j : outer){
-                announce_list.push_back(std::get<BencodeString>(j->value));
+                BencodeString url = std::get<BencodeString>(j->value);
                 
+                if (url.substr(0, 6) == "udp://" || url.substr(0, 7) == "http://") {
+                    announce_list.push_back(url);
+                }
+                    
             }
         
         }
