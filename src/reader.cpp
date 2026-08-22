@@ -275,22 +275,17 @@ int main() {
     tf.peer_id = torrent.url_encode(peer_id);
 
    
-
+    std::string response;
     for (std::string i : tf.announce_list){
         if (i.substr(0, 6) == "udp://") {
             std::cout << "udp detected" << std::endl;
           
-
             std::pair<std::string, int> host_and_port = extractHostAndPort(i);
-            std::string response = udp_response(tf,hashed,peer_id,host_and_port.first,host_and_port.second);
-            
-
-            if (response.size() >= 20){
-                
-                //get peers now 
+            std::string udp_check = udp_response(tf,hashed,peer_id,host_and_port.first,host_and_port.second);
+            if (udp_check.size() >= 20){
+                response = udp_check;
+                break;
             }
-            
-
         }
         else{
             // normal tcp curl logic
@@ -302,11 +297,16 @@ int main() {
             "&downloaded=0" +
             "&left="      + std::to_string(tf.length) +
             "&compact=1";
-            std::string response = get_response(tracker_url);
+            std::string tcp_check = get_response(tracker_url);
+            if (tcp_check.size()> 20){
+                response = tcp_check;
+                break;
+            }
+            
         }
     }
  
-
+    std::cout << response << std::endl;
     /*
     std::string response = get_response(tracker_url);
     BencodeDict return_dict = extractTrackerDictionary(response,test);
