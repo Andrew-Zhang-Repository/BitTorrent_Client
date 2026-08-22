@@ -199,21 +199,6 @@ int connect_and_send(std::string handshake, peer peer, std::string info_hash){
     }
 
     std::string peer_response = recv_exact(68,sock);
-    /*int bytes_received = 0;
-    char peer_response[68];
-    while (bytes_received < 68) {
-        int result = recv(sock, peer_response + bytes_received, 68 - bytes_received, 0);
-        if (result <= 0) {
-            std::cerr << "Peer dropped connection or network error." << std::endl;
-            close(sock);
-            return false;
-        }
-        bytes_received += result;
-    }
-
-    std::string sub(peer_response + 28, 20);
-    std::string rec_hash = sub;
-    */
     if (peer_response.size()!=68){
         return -1;
     }
@@ -228,4 +213,159 @@ int connect_and_send(std::string handshake, peer peer, std::string info_hash){
         return -1;
     }
 
+}
+
+std::pair<std::string, int> extractHostAndPort(std::string_view str) {
+    
+    if (auto pos = str.find("://"); pos != std::string_view::npos) {
+        str.remove_prefix(pos + 3);
+    }
+
+    auto colon_pos = str.rfind(':');
+    if (colon_pos == std::string_view::npos) {
+        return {std::string(str), 0}; 
+    }
+
+    std::string host(str.substr(0, colon_pos));
+    int port = std::stoi(std::string(str.substr(colon_pos + 1)));
+    
+    return {host, port};
+}
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+std::string udp_response(TorrentFile tf,std::string hashed ,std::string peer_id, std::string host, int port){
+
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("socket");
+        return "";
+    }
+
+    struct timeval tv{5, 0};
+    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+        perror("setsockopt SO_RCVTIMEO");
+    }
+
+    struct addrinfo hints{};
+    struct addrinfo* result = nullptr;
+
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+
+    int status = getaddrinfo(
+        host.c_str(),
+        std::to_string(port).c_str(),
+        &hints,
+        &result
+    );
+
+    if (status!=0){
+        std::cout << gai_strerror(status)  << std::endl;
+        return "";
+    }
+  
+    unsigned char connect_req[16];
+    uint64_t magic_id = 0x41727101980;
+    uint32_t action = 0;             
+    uint32_t trans_id = 12345;        
+
+    for (int i = 0; i < 8; i++){
+        connect_req[i] = (magic_id >> (56 - 8 * i)) & 0xFF;
+    }
+
+    uint32_t action_net = htonl(action);
+    uint32_t trans_net = htonl(trans_id);
+    memcpy(connect_req + 8, &action_net, 4);
+    memcpy(connect_req + 12, &trans_net, 4);
+
+    sendto(sock, connect_req, 16, 0, result->ai_addr, result->ai_addrlen);
+    unsigned char connect_res[16];
+    int connect_rx = recvfrom(sock, connect_res, 16, 0, nullptr, nullptr);
+    if (connect_rx < 16) {
+        std::cerr << "UDP connect response too short: " << connect_rx << " bytes\n";
+        freeaddrinfo(result);
+        close(sock);
+        return "";
+    }
+    if (connect_res[0] != 0) {
+        std::cerr << "UDP connect error action: " << static_cast<int>(connect_res[0]) << "\n";
+        freeaddrinfo(result);
+        close(sock);
+        return "";
+    }
+    uint32_t rx_trans_id = 0;
+    memcpy(&rx_trans_id, connect_res + 4, 4);
+    rx_trans_id = ntohl(rx_trans_id);
+    if (rx_trans_id != trans_id) {
+        std::cerr << "UDP connect transaction ID mismatch\n";
+        freeaddrinfo(result);
+        close(sock);
+        return "";
+    }
+
+    uint64_t connection_id = 0;
+    for (int i = 0; i < 8; i++){
+        connection_id = (connection_id << 8) | connect_res[8 + i];
+    }
+
+    unsigned char announce_req[98];
+    uint32_t announce_action = htonl(1); 
+    uint32_t announce_trans = htonl(12345);
+
+    for (int i = 0; i < 8; i++) {
+        announce_req[i] = (connection_id >> (56 - 8 * i)) & 0xFF;
+    }
+
+    memcpy(announce_req + 8, &announce_action, 4);
+    memcpy(announce_req + 12, &announce_trans, 4);
+    memcpy(announce_req + 16, hashed.data(), 20);
+    memcpy(announce_req + 36, peer_id.data(), 20);
+    memset(announce_req + 56, 0, 8);
+
+    uint64_t left = tf.length; 
+    for (int i = 0; i < 8; i++) {
+        announce_req[64 + i] = (left >> (56 - 8 * i)) & 0xFF;
+    }
+
+    memset(announce_req + 72, 0, 8);
+    memset(announce_req + 80, 0, 4);
+    memset(announce_req + 84, 0, 4);
+    uint32_t key = htonl(12345);
+    memcpy(announce_req + 88, &key, 4);
+
+    uint32_t num_want = htonl(-1);
+    memcpy(announce_req + 92, &num_want, 4);
+
+    uint16_t port_net = htons(6881);
+    memcpy(announce_req + 96, &port_net, 2);
+
+    sendto(sock, announce_req, 98, 0, result->ai_addr, result->ai_addrlen);
+    std::string response;
+    response.resize(2048);
+    char* buffer_ptr = &response[0];
+    int bytes_rx = recvfrom(sock, buffer_ptr, 2048, 0, nullptr, nullptr);
+    freeaddrinfo(result);
+    close(sock);
+    
+    if (bytes_rx < 0) {
+        return ""; 
+    }
+    
+    if (bytes_rx < 8) {
+        std::cerr << "UDP announce response too short: " << bytes_rx << " bytes\n";
+        return "";
+    }
+    
+    unsigned char announce_action_rx = buffer_ptr[0];
+    if (announce_action_rx == 3) {
+        std::string error_msg(buffer_ptr + 8, bytes_rx - 8);
+        std::cerr << "UDP announce error: " << error_msg << "\n";
+        return "";
+    }
+    
+    response.resize(bytes_rx);
+    
+    return response;
 }

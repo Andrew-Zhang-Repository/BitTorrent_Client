@@ -15,3 +15,5 @@ void get_interval_peers(BencodeDict dict, BencodeInt& interval, BencodeString& p
 std::string get_handshake(std::string info_hash, std::string peer_id);
 int connect_and_send(std::string handshake, peer peer, std::string info_hash);
 bool connectWithTimeout(int sock, const struct sockaddr* addr, socklen_t addrLen, int timeoutSec);
+std::string udp_response(TorrentFile tf,std::string hashed ,std::string peer_id, std::string host, int port);
+std::pair<std::string, int> extractHostAndPort(std::string_view str);

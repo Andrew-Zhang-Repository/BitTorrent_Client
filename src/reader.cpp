@@ -274,12 +274,23 @@ int main() {
     tf.info_hash = torrent.url_encode(hashed); // Url encode the hash
     tf.peer_id = torrent.url_encode(peer_id);
 
-    std::string response;
+   
 
     for (std::string i : tf.announce_list){
         if (i.substr(0, 6) == "udp://") {
             std::cout << "udp detected" << std::endl;
+          
+
+            std::pair<std::string, int> host_and_port = extractHostAndPort(i);
+            std::string response = udp_response(tf,hashed,peer_id,host_and_port.first,host_and_port.second);
             
+
+            if (response.size() >= 20){
+                
+                //get peers now 
+            }
+            
+
         }
         else{
             // normal tcp curl logic
